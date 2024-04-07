@@ -62,6 +62,10 @@ impl PipelineRunner {
                 }),
                 Config {
                     image: Some(step.image.clone()),
+                    entrypoint: step
+                        .commands
+                        .clone()
+                        .map(|commands| vec!["sh".into(), "-c".into(), commands.join("; ")]),
                     ..Default::default()
                 },
             )

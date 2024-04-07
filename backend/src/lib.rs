@@ -12,8 +12,11 @@ pub async fn main() {
                 name: "Test".into(),
                 steps: vec![StepConfiguration {
                     name: "Step 1".into(),
-                    image: "hello-world".into(),
-                    commands: None,
+                    image: "alpine".into(),
+                    commands: Some(vec![
+                        "echo \"hello world!\"".into(),
+                        "echo \"second command!\"".into(),
+                    ]),
                 }],
             },
         })
