@@ -1,14 +1,21 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+use domain::pipeline::{Pipeline, PipelineConfiguration, PipelineId, StepConfiguration};
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+mod domain;
+mod runner;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub async fn main() {
+    let runner = runner::PipelineRunner::new();
+    runner
+        .run_pipeline(&Pipeline {
+            id: PipelineId::new(1),
+            configuration: PipelineConfiguration {
+                name: "Test".into(),
+                steps: vec![StepConfiguration {
+                    name: "Step 1".into(),
+                    image: "hello-world".into(),
+                    commands: None,
+                }],
+            },
+        })
+        .await;
 }
