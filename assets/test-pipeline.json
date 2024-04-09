@@ -1,0 +1,13 @@
+{
+  "name": "Test pipeline",
+  "steps": [
+    {
+      "name": "Step1",
+      "image": "alpine",
+      "commands": [
+        "echo \"hello world!\"",
+        "echo \"line two\""
+      ]
+    }
+  ]
+}

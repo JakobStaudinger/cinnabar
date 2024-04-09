@@ -1,4 +1,4 @@
-use domain::pipeline::{Pipeline, PipelineConfiguration, PipelineId, StepConfiguration};
+use domain::pipeline::{Pipeline, PipelineId};
 
 mod domain;
 mod runner;
@@ -8,17 +8,12 @@ pub async fn main() {
     runner
         .run_pipeline(&Pipeline {
             id: PipelineId::new(1),
-            configuration: PipelineConfiguration {
-                name: "Test".into(),
-                steps: vec![StepConfiguration {
-                    name: "Step 1".into(),
-                    image: "alpine".into(),
-                    commands: Some(vec![
-                        "echo \"hello world!\"".into(),
-                        "echo \"second command!\"".into(),
-                    ]),
-                }],
-            },
+            configuration: serde_json::from_str(
+                std::fs::read_to_string("assets/test-pipeline.json")
+                    .unwrap()
+                    .as_str(),
+            )
+            .unwrap(),
         })
         .await;
 }

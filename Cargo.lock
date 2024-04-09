@@ -45,6 +45,7 @@ dependencies = [
  "bollard",
  "futures",
  "serde",
+ "serde_json",
  "tokio",
 ]
 
