@@ -103,6 +103,7 @@ impl<'a> PipelineRunnerInstance<'a> {
                 Config {
                     image: Some(step.configuration.image.clone()),
                     working_dir: Some("/ci/src".into()),
+                    tty: Some(true),
                     entrypoint: step.configuration.commands.as_ref().map(|commands| {
                         vec![
                             "sh".into(),
@@ -185,7 +186,7 @@ impl<'a> PipelineRunnerInstance<'a> {
         logs.sort_by_key(|(t, _m)| t.to_string());
 
         for log in logs {
-            println!("{log:?}")
+            print!("{}", log.1)
         }
     }
 

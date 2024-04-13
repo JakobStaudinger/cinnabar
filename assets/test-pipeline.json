@@ -7,6 +7,7 @@
       "commands": [
         "echo \"hello \"\\\"\"world!\"\\\"\"\"",
         "echo \"line two\"",
+        "env",
         "echo \"hey from step 1\" > step1.txt"
       ]
     },
