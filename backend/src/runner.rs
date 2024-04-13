@@ -1,6 +1,6 @@
 use crate::domain::{Pipeline, Step};
 use bollard::{
-    container::{Config, CreateContainerOptions},
+    container::{Config, CreateContainerOptions, LogsOptions},
     Docker,
 };
 use futures::TryStreamExt;
@@ -39,11 +39,12 @@ impl<'a> PipelineRunnerInstance<'a> {
     async fn run_step(&self, step: &Step) {
         self.pull_image_for_step(step).await;
         let container_id = self.create_container_for_step(step).await;
-        self.run_container_for_step(step, container_id).await;
+        self.run_container_for_step(step, &container_id).await;
+        self.remove_container_for_step(step, &container_id).await;
     }
 
     async fn pull_image_for_step(&self, step: &Step) {
-        let mut iter = step.configuration.image.split(":");
+        let mut iter = step.configuration.image.split(':');
         let image_name = iter.next().unwrap();
         let image_tag = iter.next().unwrap_or("latest");
 
@@ -62,9 +63,9 @@ impl<'a> PipelineRunnerInstance<'a> {
             .await
             .unwrap();
 
-        for image in image {
-            println!("{image:?}");
-        }
+        let image_status = image.last().unwrap().status.as_ref().unwrap();
+
+        println!("{image_status}");
     }
 
     async fn create_container_for_step(&self, step: &Step) -> String {
@@ -91,10 +92,36 @@ impl<'a> PipelineRunnerInstance<'a> {
         result.id
     }
 
-    async fn run_container_for_step(&self, _step: &Step, container_id: String) {
+    async fn run_container_for_step(&self, _step: &Step, container_name: &str) {
         self.docker
-            .start_container::<String>(&container_id, None)
+            .start_container::<String>(container_name, None)
             .await
             .unwrap();
+
+        let logs = self
+            .docker
+            .logs(
+                container_name,
+                Some(LogsOptions::<&str> {
+                    timestamps: true,
+                    stdout: true,
+                    stderr: true,
+                    ..Default::default()
+                }),
+            )
+            .try_collect::<Vec<_>>()
+            .await
+            .unwrap();
+
+        for log in logs {
+            print!("{log}")
+        }
+    }
+
+    async fn remove_container_for_step(&self, _step: &Step, container_name: &str) {
+        self.docker
+            .remove_container(container_name, None)
+            .await
+            .unwrap()
     }
 }
