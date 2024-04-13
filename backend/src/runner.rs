@@ -93,6 +93,12 @@ impl<'a> PipelineRunnerInstance<'a> {
     }
 
     async fn create_container_for_step(&self, step: &Step) -> String {
+        let commands = step
+            .configuration
+            .commands
+            .as_ref()
+            .map(|commands| commands.join("; "));
+
         let result = self
             .docker
             .create_container(
@@ -101,18 +107,12 @@ impl<'a> PipelineRunnerInstance<'a> {
                     platform: None,
                 }),
                 Config {
-                    image: Some(step.configuration.image.clone()),
-                    working_dir: Some("/ci/src".into()),
+                    image: Some(step.configuration.image.as_str()),
+                    working_dir: Some("/ci/src"),
                     tty: Some(true),
-                    entrypoint: step.configuration.commands.as_ref().map(|commands| {
-                        vec![
-                            "sh".into(),
-                            "-x".into(),
-                            "-e".into(),
-                            "-c".into(),
-                            commands.join("; "),
-                        ]
-                    }),
+                    entrypoint: commands
+                        .as_ref()
+                        .map(|commands| vec!["sh", "-x", "-e", "-c", commands.as_str()]),
                     host_config: Some(HostConfig {
                         binds: Some(vec![format!(
                             "workspace-pipeline-{}:/ci/src",
