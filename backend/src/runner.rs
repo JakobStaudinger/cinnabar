@@ -1,4 +1,4 @@
-use crate::domain::pipeline::{Pipeline, StepConfiguration};
+use crate::domain::{Pipeline, StepConfiguration};
 use bollard::{
     container::{Config, CreateContainerOptions},
     Docker,

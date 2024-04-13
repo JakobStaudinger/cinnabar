@@ -1,1 +1,3 @@
-pub mod pipeline;
+mod pipeline;
+
+pub use pipeline::*;

@@ -31,6 +31,12 @@ pub struct Step {
 #[derive(Serialize, Deserialize)]
 pub struct StepId(usize);
 
+impl Pipeline {
+    pub fn new(id: PipelineId, configuration: PipelineConfiguration) -> Self {
+        Self { id, configuration }
+    }
+}
+
 impl PipelineId {
     pub fn new(i: usize) -> Self {
         Self(i)
