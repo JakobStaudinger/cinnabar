@@ -2,11 +2,18 @@
   "name": "Test pipeline",
   "steps": [
     {
-      "name": "Step1",
+      "name": "Step 1",
       "image": "alpine",
       "commands": [
         "echo \"hello world!\"",
         "echo \"line two\""
+      ]
+    },
+    {
+      "name": "Step 2",
+      "image": "alpine",
+      "commands": [
+        "echo \"hello from another step!\""
       ]
     }
   ]

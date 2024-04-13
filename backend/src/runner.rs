@@ -1,4 +1,4 @@
-use crate::domain::{Pipeline, StepConfiguration};
+use crate::domain::{Pipeline, Step};
 use bollard::{
     container::{Config, CreateContainerOptions},
     Docker,
@@ -16,19 +16,34 @@ impl PipelineRunner {
     }
 
     pub async fn run_pipeline(&self, pipeline: &Pipeline) {
-        for step in &pipeline.configuration.steps {
+        let runner_instance = PipelineRunnerInstance {
+            docker: &self.docker,
+            pipeline,
+        };
+        runner_instance.run().await
+    }
+}
+
+struct PipelineRunnerInstance<'a> {
+    docker: &'a Docker,
+    pipeline: &'a Pipeline,
+}
+
+impl<'a> PipelineRunnerInstance<'a> {
+    async fn run(&self) {
+        for step in &self.pipeline.steps {
             self.run_step(step).await;
         }
     }
 
-    async fn run_step(&self, step: &StepConfiguration) {
+    async fn run_step(&self, step: &Step) {
         self.pull_image_for_step(step).await;
         let container_id = self.create_container_for_step(step).await;
         self.run_container_for_step(step, container_id).await;
     }
 
-    async fn pull_image_for_step(&self, step: &StepConfiguration) {
-        let mut iter = step.image.split(":");
+    async fn pull_image_for_step(&self, step: &Step) {
+        let mut iter = step.configuration.image.split(":");
         let image_name = iter.next().unwrap();
         let image_tag = iter.next().unwrap_or("latest");
 
@@ -52,17 +67,18 @@ impl PipelineRunner {
         }
     }
 
-    async fn create_container_for_step(&self, step: &StepConfiguration) -> String {
+    async fn create_container_for_step(&self, step: &Step) -> String {
         let result = self
             .docker
             .create_container(
                 Some(CreateContainerOptions {
-                    name: "rust-hello-world",
+                    name: format!("pipeline-{}-step-{}", self.pipeline.id, step.id),
                     platform: None,
                 }),
                 Config {
-                    image: Some(step.image.clone()),
+                    image: Some(step.configuration.image.clone()),
                     entrypoint: step
+                        .configuration
                         .commands
                         .clone()
                         .map(|commands| vec!["sh".into(), "-c".into(), commands.join("; ")]),
@@ -75,7 +91,7 @@ impl PipelineRunner {
         result.id
     }
 
-    async fn run_container_for_step(&self, _step: &StepConfiguration, container_id: String) {
+    async fn run_container_for_step(&self, _step: &Step, container_id: String) {
         self.docker
             .start_container::<String>(&container_id, None)
             .await

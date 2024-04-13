@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -6,7 +8,7 @@ pub struct PipelineConfiguration {
     pub steps: Vec<StepConfiguration>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct StepConfiguration {
     pub name: String,
     pub image: String,
@@ -17,6 +19,7 @@ pub struct StepConfiguration {
 pub struct Pipeline {
     pub id: PipelineId,
     pub configuration: PipelineConfiguration,
+    pub steps: Vec<Step>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -33,7 +36,19 @@ pub struct StepId(usize);
 
 impl Pipeline {
     pub fn new(id: PipelineId, configuration: PipelineConfiguration) -> Self {
-        Self { id, configuration }
+        let steps = configuration
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(id, step_configuration)| {
+                Step::new(StepId::new(id + 1), step_configuration.clone())
+            })
+            .collect();
+        Self {
+            id,
+            configuration,
+            steps,
+        }
     }
 }
 
@@ -43,8 +58,26 @@ impl PipelineId {
     }
 }
 
+impl Display for PipelineId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Step {
+    pub fn new(id: StepId, configuration: StepConfiguration) -> Self {
+        Self { id, configuration }
+    }
+}
+
 impl StepId {
     pub fn new(i: usize) -> Self {
         Self(i)
+    }
+}
+
+impl Display for StepId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
