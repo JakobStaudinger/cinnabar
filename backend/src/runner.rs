@@ -1,6 +1,6 @@
 use crate::domain::{Pipeline, Step};
 use bollard::{
-    container::{Config, CreateContainerOptions, LogsOptions},
+    container::{Config, CreateContainerOptions, LogOutput, LogsOptions},
     secret::HostConfig,
     volume::CreateVolumeOptions,
     Docker,
@@ -18,10 +18,7 @@ impl PipelineRunner {
     }
 
     pub async fn run_pipeline(&self, pipeline: &Pipeline) {
-        let runner_instance = PipelineRunnerInstance {
-            docker: &self.docker,
-            pipeline,
-        };
+        let runner_instance = PipelineRunnerInstance::new(&self.docker, pipeline);
         runner_instance.run().await
     }
 }
@@ -29,21 +26,34 @@ impl PipelineRunner {
 struct PipelineRunnerInstance<'a> {
     docker: &'a Docker,
     pipeline: &'a Pipeline,
+    workspace_volume_name: String,
 }
 
 impl<'a> PipelineRunnerInstance<'a> {
+    fn new(docker: &'a Docker, pipeline: &'a Pipeline) -> Self {
+        let workspace_volume_name = format!("workspace-pipeline-{}", pipeline.id);
+
+        Self {
+            docker,
+            pipeline,
+            workspace_volume_name,
+        }
+    }
+
     async fn run(&self) {
         self.create_workspace_volume().await;
 
         for step in &self.pipeline.steps {
             self.run_step(step).await;
         }
+
+        self.clean_up_workspace_volume().await
     }
 
     async fn create_workspace_volume(&self) {
         self.docker
             .create_volume(CreateVolumeOptions {
-                name: format!("workspace-pipeline-{}", self.pipeline.id),
+                name: self.workspace_volume_name.as_str(),
                 ..Default::default()
             })
             .await
@@ -93,11 +103,15 @@ impl<'a> PipelineRunnerInstance<'a> {
                 Config {
                     image: Some(step.configuration.image.clone()),
                     working_dir: Some("/ci/src".into()),
-                    entrypoint: step
-                        .configuration
-                        .commands
-                        .clone()
-                        .map(|commands| vec!["sh".into(), "-c".into(), commands.join("; ")]),
+                    entrypoint: step.configuration.commands.as_ref().map(|commands| {
+                        vec![
+                            "sh".into(),
+                            "-x".into(),
+                            "-e".into(),
+                            "-c".into(),
+                            commands.join("; "),
+                        ]
+                    }),
                     host_config: Some(HostConfig {
                         binds: Some(vec![format!(
                             "workspace-pipeline-{}:/ci/src",
@@ -120,6 +134,21 @@ impl<'a> PipelineRunnerInstance<'a> {
             .await
             .unwrap();
 
+        let result = self
+            .docker
+            .wait_container::<String>(container_name, None)
+            .try_collect::<Vec<_>>()
+            .await;
+
+        match result {
+            Ok(result) => {
+                for result in result {
+                    println!("{result:?}");
+                }
+            }
+            Err(err) => println!("{err:?}"),
+        };
+
         let logs = self
             .docker
             .logs(
@@ -135,8 +164,28 @@ impl<'a> PipelineRunnerInstance<'a> {
             .await
             .unwrap();
 
+        let mut logs: Vec<_> = logs
+            .into_iter()
+            .map(|log| match log {
+                LogOutput::Console { message } => message,
+                LogOutput::StdOut { message } => message,
+                LogOutput::StdErr { message } => message,
+                LogOutput::StdIn { message } => message,
+            })
+            .map(|message| {
+                let mut iter = message.splitn(2, |char| *char == b' ');
+                let timestamp = iter.next().unwrap();
+                let message = iter.next().unwrap();
+                (
+                    String::from_utf8_lossy(timestamp).to_string(),
+                    String::from_utf8_lossy(message).to_string(),
+                )
+            })
+            .collect();
+        logs.sort_by_key(|(t, _m)| t.to_string());
+
         for log in logs {
-            print!("{log}")
+            println!("{log:?}")
         }
     }
 
@@ -145,5 +194,12 @@ impl<'a> PipelineRunnerInstance<'a> {
             .remove_container(container_name, None)
             .await
             .unwrap()
+    }
+
+    async fn clean_up_workspace_volume(&self) {
+        self.docker
+            .remove_volume(&self.workspace_volume_name, None)
+            .await
+            .unwrap();
     }
 }

@@ -5,7 +5,7 @@
       "name": "Step 1",
       "image": "alpine",
       "commands": [
-        "echo \"hello world!\"",
+        "echo \"hello \"\\\"\"world!\"\\\"\"\"",
         "echo \"line two\"",
         "echo \"hey from step 1\" > step1.txt"
       ]
