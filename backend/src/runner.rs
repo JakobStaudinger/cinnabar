@@ -1,6 +1,8 @@
 use crate::domain::{Pipeline, Step};
 use bollard::{
     container::{Config, CreateContainerOptions, LogsOptions},
+    secret::HostConfig,
+    volume::CreateVolumeOptions,
     Docker,
 };
 use futures::TryStreamExt;
@@ -31,9 +33,21 @@ struct PipelineRunnerInstance<'a> {
 
 impl<'a> PipelineRunnerInstance<'a> {
     async fn run(&self) {
+        self.create_workspace_volume().await;
+
         for step in &self.pipeline.steps {
             self.run_step(step).await;
         }
+    }
+
+    async fn create_workspace_volume(&self) {
+        self.docker
+            .create_volume(CreateVolumeOptions {
+                name: format!("workspace-pipeline-{}", self.pipeline.id),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
     }
 
     async fn run_step(&self, step: &Step) {
@@ -78,11 +92,19 @@ impl<'a> PipelineRunnerInstance<'a> {
                 }),
                 Config {
                     image: Some(step.configuration.image.clone()),
+                    working_dir: Some("/ci/src".into()),
                     entrypoint: step
                         .configuration
                         .commands
                         .clone()
                         .map(|commands| vec!["sh".into(), "-c".into(), commands.join("; ")]),
+                    host_config: Some(HostConfig {
+                        binds: Some(vec![format!(
+                            "workspace-pipeline-{}:/ci/src",
+                            self.pipeline.id
+                        )]),
+                        ..Default::default()
+                    }),
                     ..Default::default()
                 },
             )

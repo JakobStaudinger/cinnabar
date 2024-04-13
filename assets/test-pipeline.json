@@ -6,14 +6,17 @@
       "image": "alpine",
       "commands": [
         "echo \"hello world!\"",
-        "echo \"line two\""
+        "echo \"line two\"",
+        "echo \"hey from step 1\" > step1.txt"
       ]
     },
     {
       "name": "Step 2",
       "image": "alpine",
       "commands": [
-        "echo \"hello from another step!\""
+        "echo \"hello from another step!\"",
+        "ls",
+        "cat step1.txt"
       ]
     }
   ]
