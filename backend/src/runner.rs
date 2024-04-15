@@ -110,6 +110,7 @@ impl<'a> PipelineRunnerInstance<'a> {
                     image: Some(step.configuration.image.as_str()),
                     working_dir: Some("/ci/src"),
                     tty: Some(true),
+                    env: Some(vec!["PS4=> "]),
                     entrypoint: commands
                         .as_ref()
                         .map(|commands| vec!["sh", "-x", "-e", "-c", commands.as_str()]),
