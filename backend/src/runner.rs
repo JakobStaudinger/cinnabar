@@ -1,6 +1,7 @@
 use crate::domain::{Pipeline, Step};
 use bollard::{
     container::{Config, CreateContainerOptions, LogOutput, LogsOptions},
+    errors::Error,
     secret::HostConfig,
     volume::CreateVolumeOptions,
     Docker,
@@ -41,33 +42,35 @@ impl<'a> PipelineRunnerInstance<'a> {
     }
 
     async fn run(&self) {
-        self.create_workspace_volume().await;
+        self.create_workspace_volume().await.unwrap();
 
         for step in &self.pipeline.steps {
-            self.run_step(step).await;
+            self.run_step(step).await.unwrap();
         }
 
-        self.clean_up_workspace_volume().await
+        self.clean_up_workspace_volume().await.unwrap();
     }
 
-    async fn create_workspace_volume(&self) {
+    async fn create_workspace_volume(&self) -> Result<(), Error> {
         self.docker
             .create_volume(CreateVolumeOptions {
                 name: self.workspace_volume_name.as_str(),
                 ..Default::default()
             })
             .await
-            .unwrap();
+            .map(|_| {})
     }
 
-    async fn run_step(&self, step: &Step) {
-        self.pull_image_for_step(step).await;
-        let container_id = self.create_container_for_step(step).await;
-        self.run_container_for_step(step, &container_id).await;
-        self.remove_container_for_step(step, &container_id).await;
+    async fn run_step(&self, step: &Step) -> Result<(), Error> {
+        self.pull_image_for_step(step).await?;
+        let container_id = self.create_container_for_step(step).await?;
+        self.run_container_for_step(step, &container_id).await?;
+        self.remove_container_for_step(step, &container_id).await?;
+
+        Ok(())
     }
 
-    async fn pull_image_for_step(&self, step: &Step) {
+    async fn pull_image_for_step(&self, step: &Step) -> Result<(), Error> {
         let mut iter = step.configuration.image.split(':');
         let image_name = iter.next().unwrap();
         let image_tag = iter.next().unwrap_or("latest");
@@ -84,23 +87,23 @@ impl<'a> PipelineRunnerInstance<'a> {
                 None,
             )
             .try_collect::<Vec<_>>()
-            .await
-            .unwrap();
+            .await?;
 
         let image_status = image.last().unwrap().status.as_ref().unwrap();
 
         println!("{image_status}");
+
+        Ok(())
     }
 
-    async fn create_container_for_step(&self, step: &Step) -> String {
+    async fn create_container_for_step(&self, step: &Step) -> Result<String, Error> {
         let commands = step
             .configuration
             .commands
             .as_ref()
             .map(|commands| commands.join("; "));
 
-        let result = self
-            .docker
+        self.docker
             .create_container(
                 Some(CreateContainerOptions {
                     name: format!("pipeline-{}-step-{}", self.pipeline.id, step.id),
@@ -125,31 +128,27 @@ impl<'a> PipelineRunnerInstance<'a> {
                 },
             )
             .await
-            .unwrap();
-
-        result.id
+            .map(|result| result.id)
     }
 
-    async fn run_container_for_step(&self, _step: &Step, container_name: &str) {
+    async fn run_container_for_step(
+        &self,
+        _step: &Step,
+        container_name: &str,
+    ) -> Result<(), Error> {
         self.docker
             .start_container::<String>(container_name, None)
-            .await
-            .unwrap();
+            .await?;
 
         let result = self
             .docker
             .wait_container::<String>(container_name, None)
             .try_collect::<Vec<_>>()
-            .await;
+            .await?;
 
-        match result {
-            Ok(result) => {
-                for result in result {
-                    println!("{result:?}");
-                }
-            }
-            Err(err) => println!("{err:?}"),
-        };
+        for result in result {
+            println!("{result:?}");
+        }
 
         let logs = self
             .docker
@@ -163,8 +162,7 @@ impl<'a> PipelineRunnerInstance<'a> {
                 }),
             )
             .try_collect::<Vec<_>>()
-            .await
-            .unwrap();
+            .await?;
 
         let mut logs: Vec<_> = logs
             .into_iter()
@@ -189,19 +187,21 @@ impl<'a> PipelineRunnerInstance<'a> {
         for log in logs {
             print!("{}", log.1)
         }
+
+        Ok(())
     }
 
-    async fn remove_container_for_step(&self, _step: &Step, container_name: &str) {
-        self.docker
-            .remove_container(container_name, None)
-            .await
-            .unwrap()
+    async fn remove_container_for_step(
+        &self,
+        _step: &Step,
+        container_name: &str,
+    ) -> Result<(), Error> {
+        self.docker.remove_container(container_name, None).await
     }
 
-    async fn clean_up_workspace_volume(&self) {
+    async fn clean_up_workspace_volume(&self) -> Result<(), Error> {
         self.docker
             .remove_volume(&self.workspace_volume_name, None)
             .await
-            .unwrap();
     }
 }
