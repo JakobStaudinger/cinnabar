@@ -20,3 +20,12 @@ pub enum CheckStatus {
     Failed,
     Passed,
 }
+
+impl CheckStatus {
+    pub fn is_completed(&self) -> bool {
+        match &self {
+            CheckStatus::Pending => false,
+            CheckStatus::Failed | CheckStatus::Passed => true,
+        }
+    }
+}

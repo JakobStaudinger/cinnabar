@@ -105,17 +105,18 @@ impl SourceControlInstallation for GitHubInstallation {
         commit: &str,
         status: crate::source_control::CheckStatus,
     ) -> Result<(), GitHubError> {
-        self.octocrab
-            .checks(&self.owner, &self.repo)
-            .create_check_run("rust ci", commit)
-            .external_id("1")
-            .status(match status {
-                crate::source_control::CheckStatus::Pending => {
-                    octocrab::params::checks::CheckRunStatus::InProgress
-                }
-                _ => octocrab::params::checks::CheckRunStatus::Completed,
-            })
-            .conclusion(match status {
+        let checks = self.octocrab.checks(&self.owner, &self.repo);
+        let mut check_run = checks.create_check_run("rust ci", commit);
+
+        check_run = check_run.external_id("1").status(match status {
+            crate::source_control::CheckStatus::Pending => {
+                octocrab::params::checks::CheckRunStatus::InProgress
+            }
+            _ => octocrab::params::checks::CheckRunStatus::Completed,
+        });
+
+        if status.is_completed() {
+            check_run = check_run.conclusion(match status {
                 crate::source_control::CheckStatus::Failed => {
                     octocrab::params::checks::CheckRunConclusion::Failure
                 }
@@ -125,9 +126,10 @@ impl SourceControlInstallation for GitHubInstallation {
                 crate::source_control::CheckStatus::Pending => {
                     octocrab::params::checks::CheckRunConclusion::Neutral
                 }
-            })
-            .send()
-            .await?;
+            });
+        }
+
+        check_run.send().await?;
 
         Ok(())
     }
