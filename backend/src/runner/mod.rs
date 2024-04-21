@@ -6,7 +6,7 @@ use self::error::RunnerError as Error;
 use self::{container::Container, volume::Volume};
 
 mod container;
-mod error;
+pub mod error;
 mod volume;
 
 pub struct PipelineRunner<'a> {
