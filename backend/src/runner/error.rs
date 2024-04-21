@@ -1,12 +1,8 @@
 use bollard::errors::Error as DockerError;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RunnerError {
-    Docker(DockerError),
-}
-
-impl From<DockerError> for RunnerError {
-    fn from(value: DockerError) -> Self {
-        RunnerError::Docker(value)
-    }
+    #[error(transparent)]
+    Docker(#[from] DockerError),
 }

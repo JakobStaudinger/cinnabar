@@ -19,7 +19,7 @@ impl<'a> PipelineRunner<'a> {
     }
 
     pub async fn run_pipeline(&self, pipeline: &Pipeline) -> Result<(), Error> {
-        let runner_instance = PipelineRunnerInstance::new(&self.docker, pipeline);
+        let runner_instance = PipelineRunnerInstance::new(self.docker, pipeline);
         runner_instance.run().await
     }
 }
