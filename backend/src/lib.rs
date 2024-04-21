@@ -1,7 +1,7 @@
 use bollard::Docker;
 use domain::{Pipeline, PipelineId};
 use github::GitHub;
-use source_control::{SourceControl, SourceControlInstallation};
+use source_control::{CheckStatus, SourceControl, SourceControlInstallation};
 
 mod domain;
 mod github;
@@ -11,10 +11,16 @@ mod source_control;
 pub async fn main() {
     let github_app_id = std::env::var("GITHUB_APP_ID").unwrap().parse().unwrap();
     let github_private_key = std::env::var("GITHUB_PRIVATE_KEY").unwrap();
+    let commit = std::env::var("GITHUB_COMMIT").unwrap();
 
     let github = GitHub::build(github_app_id, &github_private_key).unwrap();
     let installation = github
         .get_installation("JakobStaudinger", "rust-ci")
+        .await
+        .unwrap();
+
+    installation
+        .update_status_check(&commit, CheckStatus::Pending)
         .await
         .unwrap();
 
@@ -29,4 +35,9 @@ pub async fn main() {
     let docker = Docker::connect_with_socket_defaults().unwrap();
     let runner = runner::PipelineRunner::new(&docker);
     runner.run_pipeline(&pipeline).await.unwrap();
+
+    installation
+        .update_status_check(&commit, CheckStatus::Passed)
+        .await
+        .unwrap();
 }

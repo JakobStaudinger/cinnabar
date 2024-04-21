@@ -99,4 +99,36 @@ impl SourceControlInstallation for GitHubInstallation {
 
         Ok(content)
     }
+
+    async fn update_status_check(
+        &self,
+        commit: &str,
+        status: crate::source_control::CheckStatus,
+    ) -> Result<(), GitHubError> {
+        self.octocrab
+            .checks(&self.owner, &self.repo)
+            .create_check_run("rust ci", commit)
+            .external_id("1")
+            .status(match status {
+                crate::source_control::CheckStatus::Pending => {
+                    octocrab::params::checks::CheckRunStatus::InProgress
+                }
+                _ => octocrab::params::checks::CheckRunStatus::Completed,
+            })
+            .conclusion(match status {
+                crate::source_control::CheckStatus::Failed => {
+                    octocrab::params::checks::CheckRunConclusion::Failure
+                }
+                crate::source_control::CheckStatus::Passed => {
+                    octocrab::params::checks::CheckRunConclusion::Success
+                }
+                crate::source_control::CheckStatus::Pending => {
+                    octocrab::params::checks::CheckRunConclusion::Neutral
+                }
+            })
+            .send()
+            .await?;
+
+        Ok(())
+    }
 }
