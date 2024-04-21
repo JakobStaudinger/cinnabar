@@ -1,10 +1,12 @@
 use crate::domain::{Pipeline, Step};
-use bollard::{errors::Error, Docker};
+use bollard::Docker;
 use futures::TryStreamExt;
 
+use self::error::RunnerError as Error;
 use self::{container::Container, volume::Volume};
 
 mod container;
+mod error;
 mod volume;
 
 pub struct PipelineRunner<'a> {

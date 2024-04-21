@@ -1,14 +1,13 @@
+use super::error::RunnerError as Error;
+use super::volume::Volume;
+use crate::domain::{Pipeline, Step};
+
 use bollard::{
     container::{Config, CreateContainerOptions, LogOutput, LogsOptions},
-    errors::Error,
     secret::HostConfig,
     Docker,
 };
 use futures::TryStreamExt;
-
-use crate::domain::{Pipeline, Step};
-
-use super::volume::Volume;
 
 pub struct Container<'a> {
     pub name: String,
@@ -28,7 +27,7 @@ impl<'a> Container<'a> {
             .as_ref()
             .map(|commands| commands.join("; "));
 
-        docker
+        let container = docker
             .create_container(
                 Some(CreateContainerOptions {
                     name: format!("pipeline-{}-step-{}", pipeline.id, step.id),
@@ -53,7 +52,9 @@ impl<'a> Container<'a> {
             .map(|result| Self {
                 name: result.id,
                 docker,
-            })
+            })?;
+
+        Ok(container)
     }
 
     pub async fn run(&self) -> Result<(), Error> {
@@ -113,6 +114,6 @@ impl<'a> Container<'a> {
     }
 
     pub async fn remove(&self) -> Result<(), Error> {
-        self.docker.remove_container(&self.name, None).await
+        Ok(self.docker.remove_container(&self.name, None).await?)
     }
 }
