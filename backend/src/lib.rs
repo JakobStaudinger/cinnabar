@@ -1,5 +1,6 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 
+use bollard::Docker;
 use domain::{Pipeline, PipelineId};
 use jsonwebtoken::EncodingKey;
 use octocrab::{
@@ -71,6 +72,7 @@ pub async fn main() {
 
     let pipeline = Pipeline::new(PipelineId::new(1), configuration);
 
-    let runner = runner::PipelineRunner::new();
-    runner.run_pipeline(&pipeline).await;
+    let docker = Docker::connect_with_socket_defaults().unwrap();
+    let runner = runner::PipelineRunner::new(&docker);
+    runner.run_pipeline(&pipeline).await.unwrap();
 }
