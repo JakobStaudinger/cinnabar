@@ -1,0 +1,32 @@
+name: rust-ci
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: final
+    environment:
+      GITHUB_APP_ID: $GITHUB_APP_ID
+      GITHUB_PRIVATE_KEY: $GITHUB_PRIVATE_KEY
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+
+  nginx:
+    depends_on:
+      - backend
+    build:
+      context: nginx
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      CERTBOT_EMAIL: $CERTBOT_EMAIL
+      CERTBOT_DOMAINS: >
+        ci.jakobs-lab.at
+    volumes:
+      - certificates:/etc/letsencrypt:rw
+      - /etc/letsencrypt/renewal-hooks
+    
+volumes:
+  certificates:

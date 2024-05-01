@@ -26,7 +26,7 @@ async fn handle_webhook() -> impl IntoResponse {
     tokio::spawn(async {
         let github_app_id = std::env::var("GITHUB_APP_ID").unwrap().parse().unwrap();
         let github_private_key = std::env::var("GITHUB_PRIVATE_KEY").unwrap();
-        let commit = std::env::var("GITHUB_COMMIT").unwrap();
+        let commit = "HEAD";
 
         let github = GitHub::build(github_app_id, &github_private_key).unwrap();
         let installation = github
