@@ -4,6 +4,7 @@ use domain::{Pipeline, PipelineId};
 use github::GitHub;
 use source_control::{CheckStatus, SourceControl, SourceControlInstallation};
 use std::io;
+use tokio::signal::{self, unix::SignalKind};
 
 mod domain;
 mod github;
@@ -11,15 +12,39 @@ mod runner;
 mod source_control;
 
 pub async fn main() -> Result<(), io::Error> {
-    let app = Router::new().route("/api/webhook", post(handle_webhook));
-
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:42069")
-        .await
-        .unwrap();
-
-    axum::serve(listener, app).await.unwrap();
+    start_http_server().await?;
 
     Ok(())
+}
+
+async fn start_http_server() -> Result<(), io::Error> {
+    let app = Router::new().route("/api/webhook", post(handle_webhook));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:42069").await?;
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("Failed to install Ctrl+C handler")
+    };
+
+    let terminate = async {
+        signal::unix::signal(SignalKind::terminate())
+            .expect("Failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {}
+    }
 }
 
 async fn handle_webhook() -> impl IntoResponse {
