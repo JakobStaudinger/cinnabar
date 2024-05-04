@@ -1,15 +1,13 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::post, Router};
 use bollard::Docker;
-use domain::{Pipeline, PipelineId};
-use github::GitHub;
-use source_control::{CheckStatus, SourceControl, SourceControlInstallation};
+use shared::domain::{Pipeline, PipelineId};
+use shared::source_control::{
+    github::GitHub, CheckStatus, SourceControl, SourceControlInstallation,
+};
 use std::io;
 use tokio::signal::{self, unix::SignalKind};
 
-mod domain;
-mod github;
 mod runner;
-mod source_control;
 
 pub async fn main() -> Result<(), io::Error> {
     start_http_server().await?;

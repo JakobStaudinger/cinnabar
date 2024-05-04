@@ -10,6 +10,7 @@ WORKDIR /app
 RUN apk add --no-cache clang lld musl-dev git
 
 RUN --mount=type=bind,source=backend,target=backend \
+    --mount=type=bind,source=shared,target=shared \
     --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
     --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
     --mount=type=cache,target=/app/target/ \

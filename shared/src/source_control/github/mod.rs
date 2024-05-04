@@ -30,11 +30,14 @@ impl GitHub {
 }
 
 impl SourceControl for GitHub {
+    type Installation = GitHubInstallation;
+    type Error = GitHubError;
+
     async fn get_installation(
         &self,
         owner: &str,
         repo: &str,
-    ) -> Result<GitHubInstallation, GitHubError> {
+    ) -> Result<Self::Installation, Self::Error> {
         let installation = self
             .octocrab
             .apps()
@@ -71,7 +74,9 @@ pub struct GitHubInstallation {
 }
 
 impl SourceControlInstallation for GitHubInstallation {
-    async fn read_file_contents(&self, path: &str) -> Result<String, GitHubError> {
+    type Error = GitHubError;
+
+    async fn read_file_contents(&self, path: &str) -> Result<String, Self::Error> {
         let content = self
             .octocrab
             .repos(&self.owner, &self.repo)
@@ -104,7 +109,7 @@ impl SourceControlInstallation for GitHubInstallation {
         &self,
         commit: &str,
         status: crate::source_control::CheckStatus,
-    ) -> Result<(), GitHubError> {
+    ) -> Result<(), Self::Error> {
         let checks = self.octocrab.checks(&self.owner, &self.repo);
         let mut check_run = checks.create_check_run("rust ci", commit);
 

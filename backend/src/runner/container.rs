@@ -1,6 +1,6 @@
 use super::error::RunnerError as Error;
 use super::volume::Volume;
-use crate::domain::{Pipeline, Step};
+use shared::domain::{Pipeline, Step};
 
 use bollard::{
     container::{Config, CreateContainerOptions, LogOutput, LogsOptions},

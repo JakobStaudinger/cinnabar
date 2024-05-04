@@ -1,6 +1,6 @@
-use crate::domain::{Pipeline, Step};
 use bollard::Docker;
 use futures::TryStreamExt;
+use shared::domain::{Pipeline, Step};
 
 use self::error::RunnerError as Error;
 use self::{container::Container, volume::Volume};
