@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
       target: final
+    restart: on-failure:3
     environment:
       GITHUB_APP_ID: $GITHUB_APP_ID
       GITHUB_PRIVATE_KEY: $GITHUB_PRIVATE_KEY
@@ -20,6 +21,7 @@ services:
     ports:
       - 80:80
       - 443:443
+    restart: on-failure:3
     environment:
       CERTBOT_EMAIL: $CERTBOT_EMAIL
       CERTBOT_DOMAINS: >
