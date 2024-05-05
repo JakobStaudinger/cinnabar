@@ -1,11 +1,14 @@
 pub mod error;
 
-use crate::source_control::{SourceControl, SourceControlInstallation};
+use crate::source_control::{CheckStatus, SourceControl, SourceControlInstallation};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use jsonwebtoken::EncodingKey;
 use octocrab::{
     models::{AppId, InstallationToken},
-    params::apps::CreateInstallationAccessToken,
+    params::{
+        apps::CreateInstallationAccessToken,
+        checks::{CheckRunConclusion, CheckRunStatus},
+    },
     Octocrab,
 };
 use url::Url;
@@ -21,7 +24,7 @@ impl GitHub {
         let octocrab = Octocrab::builder()
             .app(
                 AppId(app_id),
-                EncodingKey::from_rsa_pem(private_key.as_bytes()).unwrap(),
+                EncodingKey::from_rsa_pem(private_key.as_bytes())?,
             )
             .build()?;
 
@@ -47,8 +50,9 @@ impl SourceControl for GitHub {
         let mut create_access_token = CreateInstallationAccessToken::default();
         create_access_token.repositories = vec![repo.to_owned()];
 
-        let access_token_url =
-            Url::parse(installation.access_tokens_url.as_ref().unwrap()).unwrap();
+        let access_token_url = Url::parse(installation.access_tokens_url.as_ref().ok_or(
+            GitHubError::Generic("Could not get access_tokens_url from installation".to_owned()),
+        )?)?;
         let access: InstallationToken = self
             .octocrab
             .post(access_token_url.path(), Some(&create_access_token))
@@ -108,29 +112,22 @@ impl SourceControlInstallation for GitHubInstallation {
     async fn update_status_check(
         &self,
         commit: &str,
-        status: crate::source_control::CheckStatus,
+        status: CheckStatus,
     ) -> Result<(), Self::Error> {
         let checks = self.octocrab.checks(&self.owner, &self.repo);
         let mut check_run = checks.create_check_run("rust ci", commit);
 
         check_run = check_run.external_id("1").status(match status {
-            crate::source_control::CheckStatus::Pending => {
-                octocrab::params::checks::CheckRunStatus::InProgress
-            }
-            _ => octocrab::params::checks::CheckRunStatus::Completed,
+            CheckStatus::Pending => CheckRunStatus::Queued,
+            CheckStatus::Running => CheckRunStatus::InProgress,
+            _ => CheckRunStatus::Completed,
         });
 
         if status.is_completed() {
             check_run = check_run.conclusion(match status {
-                crate::source_control::CheckStatus::Failed => {
-                    octocrab::params::checks::CheckRunConclusion::Failure
-                }
-                crate::source_control::CheckStatus::Passed => {
-                    octocrab::params::checks::CheckRunConclusion::Success
-                }
-                crate::source_control::CheckStatus::Pending => {
-                    octocrab::params::checks::CheckRunConclusion::Neutral
-                }
+                CheckStatus::Failed => CheckRunConclusion::Failure,
+                CheckStatus::Passed => CheckRunConclusion::Success,
+                CheckStatus::Pending | CheckStatus::Running => CheckRunConclusion::Neutral,
             });
         }
 

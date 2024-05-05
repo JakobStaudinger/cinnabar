@@ -20,6 +20,7 @@ pub struct Pipeline {
     pub id: PipelineId,
     pub configuration: PipelineConfiguration,
     pub steps: Vec<Step>,
+    pub status: PipelineStatus,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -29,10 +30,19 @@ pub struct PipelineId(usize);
 pub struct Step {
     pub id: StepId,
     pub configuration: StepConfiguration,
+    pub status: PipelineStatus,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct StepId(usize);
+
+#[derive(Serialize, Deserialize)]
+pub enum PipelineStatus {
+    Pending,
+    Running,
+    Passed,
+    Failed,
+}
 
 impl Pipeline {
     pub fn new(id: PipelineId, configuration: PipelineConfiguration) -> Self {
@@ -48,6 +58,7 @@ impl Pipeline {
             id,
             configuration,
             steps,
+            status: PipelineStatus::Pending,
         }
     }
 }
@@ -66,7 +77,11 @@ impl Display for PipelineId {
 
 impl Step {
     pub fn new(id: StepId, configuration: StepConfiguration) -> Self {
-        Self { id, configuration }
+        Self {
+            id,
+            configuration,
+            status: PipelineStatus::Pending,
+        }
     }
 }
 

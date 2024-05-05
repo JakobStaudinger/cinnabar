@@ -1,6 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::post, Router};
 use bollard::Docker;
-use shared::domain::{Pipeline, PipelineId};
+use shared::domain::{Pipeline, PipelineId, PipelineStatus};
 use shared::source_control::{
     github::GitHub, CheckStatus, SourceControl, SourceControlInstallation,
 };
@@ -58,7 +58,7 @@ async fn handle_webhook() -> impl IntoResponse {
             .unwrap();
 
         installation
-            .update_status_check(&commit, CheckStatus::Pending)
+            .update_status_check(commit, CheckStatus::Running)
             .await
             .unwrap();
 
@@ -68,14 +68,22 @@ async fn handle_webhook() -> impl IntoResponse {
             .unwrap();
         let configuration = serde_json::from_str(&configuration).unwrap();
 
-        let pipeline = Pipeline::new(PipelineId::new(1), configuration);
+        let mut pipeline = Pipeline::new(PipelineId::new(1), configuration);
 
         let docker = Docker::connect_with_socket_defaults().unwrap();
         let runner = runner::PipelineRunner::new(&docker);
-        runner.run_pipeline(&pipeline).await.unwrap();
+        runner.run_pipeline(&mut pipeline).await.unwrap();
 
         installation
-            .update_status_check(&commit, CheckStatus::Passed)
+            .update_status_check(
+                commit,
+                match pipeline.status {
+                    PipelineStatus::Passed => CheckStatus::Passed,
+                    PipelineStatus::Failed => CheckStatus::Failed,
+                    PipelineStatus::Pending => CheckStatus::Pending,
+                    PipelineStatus::Running => CheckStatus::Running,
+                },
+            )
             .await
             .unwrap();
     });

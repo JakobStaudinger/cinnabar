@@ -4,7 +4,8 @@ use shared::domain::{Pipeline, Step};
 
 use bollard::{
     container::{Config, CreateContainerOptions, LogOutput, LogsOptions},
-    secret::HostConfig,
+    errors::Error::DockerContainerWaitError,
+    secret::{ContainerWaitResponse, HostConfig},
     Docker,
 };
 use futures::TryStreamExt;
@@ -13,6 +14,8 @@ pub struct Container<'a> {
     pub name: String,
     docker: &'a Docker,
 }
+
+pub struct ContainerExitCode(pub i64);
 
 impl<'a> Container<'a> {
     pub async fn create(
@@ -57,7 +60,7 @@ impl<'a> Container<'a> {
         Ok(container)
     }
 
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(&self) -> Result<ContainerExitCode, Error> {
         self.docker
             .start_container::<String>(&self.name, None)
             .await?;
@@ -66,11 +69,17 @@ impl<'a> Container<'a> {
             .docker
             .wait_container::<String>(&self.name, None)
             .try_collect::<Vec<_>>()
-            .await?;
+            .await;
 
-        for result in result {
-            println!("{result:?}");
-        }
+        let exit_code = match result.as_deref() {
+            Ok([ContainerWaitResponse { status_code, .. }, ..]) => ContainerExitCode(*status_code),
+            Err(DockerContainerWaitError { code, .. }) => ContainerExitCode(*code),
+            _ => {
+                return Err(Error::Generic(
+                    "Failed to get container exit_code".to_owned(),
+                ))
+            }
+        };
 
         let logs = self
             .docker
@@ -110,7 +119,7 @@ impl<'a> Container<'a> {
             print!("{}", log.1)
         }
 
-        Ok(())
+        Ok(exit_code)
     }
 
     pub async fn remove(&self) -> Result<(), Error> {

@@ -5,4 +5,6 @@ use thiserror::Error;
 pub enum RunnerError {
     #[error(transparent)]
     Docker(#[from] DockerError),
+    #[error("{0}")]
+    Generic(String),
 }

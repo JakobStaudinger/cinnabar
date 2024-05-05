@@ -25,6 +25,7 @@ pub trait SourceControlInstallation {
 
 pub enum CheckStatus {
     Pending,
+    Running,
     Failed,
     Passed,
 }
@@ -32,7 +33,7 @@ pub enum CheckStatus {
 impl CheckStatus {
     pub fn is_completed(&self) -> bool {
         match &self {
-            CheckStatus::Pending => false,
+            CheckStatus::Pending | CheckStatus::Running => false,
             CheckStatus::Failed | CheckStatus::Passed => true,
         }
     }

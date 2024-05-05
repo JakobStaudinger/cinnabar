@@ -16,7 +16,8 @@
       "commands": [
         "echo \"hello from another step!\"",
         "ls",
-        "cat step1.txt"
+        "cat step1.txt",
+        "exit 1"
       ]
     }
   ]
