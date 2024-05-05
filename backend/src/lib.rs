@@ -63,7 +63,7 @@ async fn handle_webhook() -> impl IntoResponse {
             .unwrap();
 
         let configuration = installation
-            .read_file_contents("assets/test-pipeline.json")
+            .read_file_contents(".ci/lint-and-test.json")
             .await
             .unwrap();
         let configuration = serde_json::from_str(&configuration).unwrap();
@@ -89,4 +89,12 @@ async fn handle_webhook() -> impl IntoResponse {
     });
 
     (StatusCode::CREATED, "OK")
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn example_test() {
+        assert_eq!(1, 2);
+    }
 }

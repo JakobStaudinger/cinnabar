@@ -1,0 +1,20 @@
+{
+  "name": "Lint & Test",
+  "steps": [
+    {
+      "name": "Lint",
+      "image": "rust:1.77.2-alpine",
+      "commands": [
+        "rustup component add clippy",
+        "cargo clippy -- -Dwarnings"
+      ]
+    },
+    {
+      "name": "Test",
+      "image": "rust:1.77.2-alpine",
+      "commands": [
+        "cargo test"
+      ]
+    }
+  ]
+}
