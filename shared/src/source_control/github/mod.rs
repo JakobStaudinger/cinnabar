@@ -4,14 +4,10 @@ use crate::source_control::{CheckStatus, SourceControl, SourceControlInstallatio
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use jsonwebtoken::EncodingKey;
 use octocrab::{
-    models::{AppId, InstallationToken},
-    params::{
-        apps::CreateInstallationAccessToken,
-        checks::{CheckRunConclusion, CheckRunStatus},
-    },
+    models::AppId,
+    params::checks::{CheckRunConclusion, CheckRunStatus},
     Octocrab,
 };
-use url::Url;
 
 use self::error::GitHubError;
 
@@ -47,18 +43,12 @@ impl SourceControl for GitHub {
             .get_repository_installation(owner, repo)
             .await?;
 
-        let mut create_access_token = CreateInstallationAccessToken::default();
-        create_access_token.repositories = vec![repo.to_owned()];
-
-        let access_token_url = Url::parse(installation.access_tokens_url.as_ref().ok_or(
-            GitHubError::Generic("Could not get access_tokens_url from installation".to_owned()),
-        )?)?;
-        let access: InstallationToken = self
+        let (_, token) = self
             .octocrab
-            .post(access_token_url.path(), Some(&create_access_token))
+            .installation_and_token(installation.id)
             .await?;
 
-        let octocrab = Octocrab::builder().personal_token(access.token).build()?;
+        let octocrab = Octocrab::builder().personal_token(token).build()?;
 
         let owner = owner.to_owned();
         let repo = repo.to_owned();
