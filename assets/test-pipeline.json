@@ -17,7 +17,7 @@
         "echo \"hello from another step!\"",
         "ls",
         "cat step1.txt",
-        "exit 1"
+        "exit 0"
       ]
     }
   ]
