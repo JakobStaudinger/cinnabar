@@ -29,7 +29,9 @@ async fn shutdown_signal() {
     let ctrl_c = async {
         signal::ctrl_c()
             .await
-            .expect("Failed to install Ctrl+C handler")
+            .expect("Failed to install Ctrl+C handler");
+
+        println!("Received SIGINT, shutting down");
     };
 
     let terminate = async {
@@ -37,6 +39,8 @@ async fn shutdown_signal() {
             .expect("Failed to install signal handler")
             .recv()
             .await;
+
+        println!("Received SIGTERM, shutting down");
     };
 
     tokio::select! {
