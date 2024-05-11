@@ -18,6 +18,8 @@ async fn start_http_server() -> Result<(), io::Error> {
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:42069").await?;
 
+    println!("listening on {}", listener.local_addr().unwrap());
+
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
