@@ -1,6 +1,6 @@
 pub mod error;
 
-use crate::source_control::{CheckStatus, SourceControl, SourceControlInstallation};
+use crate::{CheckStatus, SourceControl, SourceControlInstallation};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use jsonwebtoken::EncodingKey;
 use octocrab::{

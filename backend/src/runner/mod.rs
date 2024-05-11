@@ -1,6 +1,6 @@
 use bollard::Docker;
+use domain::{Pipeline, PipelineStatus, Step};
 use futures::TryStreamExt;
-use shared::domain::{Pipeline, PipelineStatus, Step};
 
 use self::container::ContainerExitCode;
 use self::error::RunnerError as Error;

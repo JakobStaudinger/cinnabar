@@ -1,9 +1,7 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::post, Router};
 use bollard::Docker;
-use shared::domain::{Pipeline, PipelineId, PipelineStatus};
-use shared::source_control::{
-    github::GitHub, CheckStatus, SourceControl, SourceControlInstallation,
-};
+use domain::{Pipeline, PipelineId, PipelineStatus};
+use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
 use std::io;
 use tokio::signal::{self, unix::SignalKind};
 

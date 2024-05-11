@@ -116,10 +116,11 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "bollard",
+ "domain",
  "futures",
  "serde",
  "serde_json",
- "shared",
+ "source_control",
  "thiserror",
  "tokio",
 ]
@@ -268,6 +269,14 @@ checksum = "b42b6fa04a440b495c8b04d0e71b707c585f83cb9cb28cf8cd0d976c315e31b4"
 dependencies = [
  "powerfmt",
  "serde",
+]
+
+[[package]]
+name = "domain"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -1115,18 +1124,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shared"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.0",
- "jsonwebtoken",
- "octocrab",
- "serde",
- "thiserror",
- "url",
-]
-
-[[package]]
 name = "signal-hook-registry"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1191,6 +1188,18 @@ checksum = "05ffd9c0a93b7543e062e759284fcf5f5e3b098501104bfbdde4d404db792871"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "source_control"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.0",
+ "jsonwebtoken",
+ "octocrab",
+ "serde",
+ "thiserror",
+ "url",
 ]
 
 [[package]]
