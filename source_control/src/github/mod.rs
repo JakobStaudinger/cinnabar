@@ -8,6 +8,7 @@ use octocrab::{
     params::checks::{CheckRunConclusion, CheckRunStatus},
     Octocrab,
 };
+use secrecy::SecretString;
 
 use self::error::GitHubError;
 
@@ -48,8 +49,7 @@ impl SourceControl for GitHub {
             .installation_and_token(installation.id)
             .await?;
 
-        let octocrab = Octocrab::builder().personal_token(token).build()?;
-
+        let octocrab = Octocrab::builder().personal_token(token.clone()).build()?;
         let owner = owner.to_owned();
         let repo = repo.to_owned();
 
@@ -57,6 +57,7 @@ impl SourceControl for GitHub {
             octocrab,
             owner,
             repo,
+            token,
         })
     }
 }
@@ -65,10 +66,15 @@ pub struct GitHubInstallation {
     octocrab: Octocrab,
     owner: String,
     repo: String,
+    token: SecretString,
 }
 
 impl SourceControlInstallation for GitHubInstallation {
     type Error = GitHubError;
+
+    fn get_access_token(&self) -> &SecretString {
+        &self.token
+    }
 
     async fn read_file_contents(&self, path: &str) -> Result<String, Self::Error> {
         let content = self

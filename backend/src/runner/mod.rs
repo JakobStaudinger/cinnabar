@@ -5,6 +5,7 @@ use futures::TryStreamExt;
 use self::container::ContainerExitCode;
 use self::error::RunnerError as Error;
 use self::{container::Container, volume::Volume};
+use secrecy::SecretString;
 
 mod container;
 pub mod error;
@@ -12,16 +13,20 @@ mod volume;
 
 pub struct PipelineRunner<'a> {
     docker: &'a Docker,
+    access_token: &'a SecretString,
 }
 
 impl<'a> PipelineRunner<'a> {
-    pub fn new(docker: &'a Docker) -> Self {
-        Self { docker }
+    pub fn new(docker: &'a Docker, access_token: &'a SecretString) -> Self {
+        Self {
+            docker,
+            access_token,
+        }
     }
 
     pub async fn run_pipeline(&self, pipeline: &mut Pipeline) -> Result<(), Error> {
         let mut runner_instance = PipelineRunnerInstance::new(self.docker, pipeline);
-        runner_instance.run().await
+        runner_instance.run(self.access_token).await
     }
 }
 
@@ -35,22 +40,22 @@ impl<'a> PipelineRunnerInstance<'a> {
         Self { docker, pipeline }
     }
 
-    async fn run(&mut self) -> Result<(), Error> {
+    async fn run(&mut self, access_token: &SecretString) -> Result<(), Error> {
         let volume_name = format!("workspace-pipeline-{}", self.pipeline.id);
         let volume = Volume::create(self.docker, volume_name).await?;
 
         let mut pipeline_status = PipelineStatus::Running;
 
         for step in &self.pipeline.steps {
-            let exit_code = self.run_step(step, &volume).await?;
+            let exit_code = self.run_step(step, &volume, &access_token).await?;
 
-            if !matches!(exit_code, ContainerExitCode(0)) {
+            if exit_code.is_err() {
                 pipeline_status = PipelineStatus::Failed;
                 break;
             }
         }
 
-        if !matches!(pipeline_status, PipelineStatus::Failed) {
+        if pipeline_status != PipelineStatus::Failed {
             pipeline_status = PipelineStatus::Passed;
         }
 
@@ -61,10 +66,16 @@ impl<'a> PipelineRunnerInstance<'a> {
         Ok(())
     }
 
-    async fn run_step(&self, step: &Step, volume: &Volume<'a>) -> Result<ContainerExitCode, Error> {
+    async fn run_step(
+        &self,
+        step: &Step,
+        volume: &Volume<'a>,
+        access_token: &SecretString,
+    ) -> Result<ContainerExitCode, Error> {
         self.pull_image_for_step(step).await?;
 
-        let container = Container::create(self.docker, self.pipeline, step, volume).await?;
+        let container =
+            Container::create(self.docker, self.pipeline, step, volume, access_token).await?;
         let exit_code = container.run().await?;
         container.remove().await?;
 

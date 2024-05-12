@@ -9,6 +9,7 @@ use bollard::{
     Docker,
 };
 use futures::TryStreamExt;
+use secrecy::{ExposeSecret, SecretString};
 
 pub struct Container<'a> {
     pub name: String,
@@ -17,18 +18,32 @@ pub struct Container<'a> {
 
 pub struct ContainerExitCode(pub i64);
 
+impl ContainerExitCode {
+    pub fn is_ok(&self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn is_err(&self) -> bool {
+        !self.is_ok()
+    }
+}
+
 impl<'a> Container<'a> {
     pub async fn create(
         docker: &'a Docker,
         pipeline: &Pipeline,
         step: &Step,
         volume: &Volume<'a>,
+        access_token: &SecretString,
     ) -> Result<Self, Error> {
         let commands = step
             .configuration
             .commands
             .as_ref()
             .map(|commands| commands.join("; "));
+
+        let entrypoint = include_str!("./entrypoint.sh");
+        let workspace_directory = "/ci/src";
 
         let container = docker
             .create_container(
@@ -38,14 +53,24 @@ impl<'a> Container<'a> {
                 }),
                 Config {
                     image: Some(step.configuration.image.as_str()),
-                    working_dir: Some("/ci/src"),
+                    working_dir: Some(workspace_directory),
                     tty: Some(true),
-                    env: Some(vec!["PS4=> "]),
-                    entrypoint: commands
-                        .as_ref()
-                        .map(|commands| vec!["sh", "-x", "-e", "-c", commands.as_str()]),
+                    env: Some(vec![
+                        format!(
+                            "NETRC=machine github.com login x-oauth-token password {}",
+                            access_token.expose_secret()
+                        )
+                        .as_str(),
+                        format!("SCRIPT={}", entrypoint).as_str(),
+                        format!("COMMANDS={}", commands.unwrap_or_default()).as_str(),
+                    ]),
+                    entrypoint: Some(vec![
+                        "/bin/sh",
+                        "-c",
+                        "echo \"$SCRIPT\" \"$COMMANDS\" | /bin/sh",
+                    ]),
                     host_config: Some(HostConfig {
-                        binds: Some(vec![format!("{}:/ci/src", volume.name)]),
+                        binds: Some(vec![format!("{}:{}", volume.name, workspace_directory)]),
                         ..Default::default()
                     }),
                     ..Default::default()

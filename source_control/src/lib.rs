@@ -1,3 +1,5 @@
+use secrecy::SecretString;
+
 pub trait SourceControl {
     type Installation: SourceControlInstallation;
     type Error: std::error::Error;
@@ -12,6 +14,7 @@ pub trait SourceControl {
 pub trait SourceControlInstallation {
     type Error: std::error::Error;
 
+    fn get_access_token(&self) -> &SecretString;
     fn read_file_contents(
         &self,
         path: &str,

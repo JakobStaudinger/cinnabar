@@ -36,7 +36,7 @@ pub struct Step {
 #[derive(Serialize, Deserialize)]
 pub struct StepId(usize);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub enum PipelineStatus {
     Pending,
     Running,
