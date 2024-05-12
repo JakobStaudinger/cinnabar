@@ -47,7 +47,7 @@ impl<'a> PipelineRunnerInstance<'a> {
         let mut pipeline_status = PipelineStatus::Running;
 
         for step in &self.pipeline.steps {
-            let exit_code = self.run_step(step, &volume, &access_token).await?;
+            let exit_code = self.run_step(step, &volume, access_token).await?;
 
             if exit_code.is_err() {
                 pipeline_status = PipelineStatus::Failed;
