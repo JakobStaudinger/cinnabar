@@ -99,6 +99,6 @@ async fn handle_webhook() -> impl IntoResponse {
 mod tests {
     #[test]
     fn example_test() {
-        assert_eq!(1, 2);
+        assert_eq!(1 + 1, 2);
     }
 }
