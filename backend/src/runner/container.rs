@@ -57,7 +57,7 @@ impl<'a> Container<'a> {
                     tty: Some(true),
                     env: Some(vec![
                         format!(
-                            "NETRC=machine github.com login x-oauth-token password {}",
+                            "NETRC_CONTENT=machine github.com login x-oauth-token password {}",
                             access_token.expose_secret()
                         )
                         .as_str(),
