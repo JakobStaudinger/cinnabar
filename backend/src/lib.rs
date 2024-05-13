@@ -75,8 +75,12 @@ async fn handle_webhook() -> impl IntoResponse {
         let mut pipeline = Pipeline::new(PipelineId::new(1), configuration);
 
         let docker = Docker::connect_with_socket_defaults().unwrap();
-        let runner = runner::PipelineRunner::new(&docker, installation.get_access_token());
-        runner.run_pipeline(&mut pipeline).await.unwrap();
+        let mut runner = runner::PipelineRunner {
+            docker: &docker,
+            access_token: installation.get_access_token(),
+            pipeline: &mut pipeline,
+        };
+        runner.run().await.unwrap();
 
         installation
             .update_status_check(

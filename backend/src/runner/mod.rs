@@ -12,42 +12,20 @@ pub mod error;
 mod volume;
 
 pub struct PipelineRunner<'a> {
-    docker: &'a Docker,
-    access_token: &'a SecretString,
+    pub docker: &'a Docker,
+    pub access_token: &'a SecretString,
+    pub pipeline: &'a mut Pipeline,
 }
 
 impl<'a> PipelineRunner<'a> {
-    pub fn new(docker: &'a Docker, access_token: &'a SecretString) -> Self {
-        Self {
-            docker,
-            access_token,
-        }
-    }
-
-    pub async fn run_pipeline(&self, pipeline: &mut Pipeline) -> Result<(), Error> {
-        let mut runner_instance = PipelineRunnerInstance::new(self.docker, pipeline);
-        runner_instance.run(self.access_token).await
-    }
-}
-
-struct PipelineRunnerInstance<'a> {
-    docker: &'a Docker,
-    pipeline: &'a mut Pipeline,
-}
-
-impl<'a> PipelineRunnerInstance<'a> {
-    fn new(docker: &'a Docker, pipeline: &'a mut Pipeline) -> Self {
-        Self { docker, pipeline }
-    }
-
-    async fn run(&mut self, access_token: &SecretString) -> Result<(), Error> {
+    pub async fn run(&mut self) -> Result<(), Error> {
         let volume_name = format!("workspace-pipeline-{}", self.pipeline.id);
         let volume = Volume::create(self.docker, volume_name).await?;
 
         let mut pipeline_status = PipelineStatus::Running;
 
         for step in &self.pipeline.steps {
-            let exit_code = self.run_step(step, &volume, access_token).await?;
+            let exit_code = self.run_step(step, &volume).await?;
 
             if exit_code.is_err() {
                 pipeline_status = PipelineStatus::Failed;
@@ -66,16 +44,11 @@ impl<'a> PipelineRunnerInstance<'a> {
         Ok(())
     }
 
-    async fn run_step(
-        &self,
-        step: &Step,
-        volume: &Volume<'a>,
-        access_token: &SecretString,
-    ) -> Result<ContainerExitCode, Error> {
+    async fn run_step(&self, step: &Step, volume: &Volume<'a>) -> Result<ContainerExitCode, Error> {
         self.pull_image_for_step(step).await?;
 
         let container =
-            Container::create(self.docker, self.pipeline, step, volume, access_token).await?;
+            Container::create(self.docker, self.pipeline, step, volume, self.access_token).await?;
         let exit_code = container.run().await?;
         container.remove().await?;
 
