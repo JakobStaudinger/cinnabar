@@ -1,4 +1,9 @@
-use axum::{http::StatusCode, response::IntoResponse, routing::post, Router};
+use axum::{
+    http::{HeaderMap, StatusCode},
+    response::IntoResponse,
+    routing::post,
+    Router,
+};
 use bollard::Docker;
 use domain::{Pipeline, PipelineId, PipelineStatus};
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
@@ -49,54 +54,63 @@ async fn shutdown_signal() {
     }
 }
 
-async fn handle_webhook() -> impl IntoResponse {
-    tokio::spawn(async {
-        let github_app_id = std::env::var("GITHUB_APP_ID").unwrap().parse().unwrap();
-        let github_private_key = std::env::var("GITHUB_PRIVATE_KEY").unwrap();
-        let commit = "HEAD";
+async fn handle_webhook(headers: HeaderMap) -> impl IntoResponse {
+    if let Some(event) = headers.get("x-github-event") {
+        match event.to_str() {
+            Ok("push") => {
+                tokio::spawn(async {
+                    let github_app_id = std::env::var("GITHUB_APP_ID").unwrap().parse().unwrap();
+                    let github_private_key = std::env::var("GITHUB_PRIVATE_KEY").unwrap();
+                    let commit = "HEAD";
 
-        let github = GitHub::build(github_app_id, &github_private_key).unwrap();
-        let installation = github
-            .get_installation("JakobStaudinger", "rust-ci")
-            .await
-            .unwrap();
+                    let github = GitHub::build(github_app_id, &github_private_key).unwrap();
+                    let installation = github
+                        .get_installation("JakobStaudinger", "rust-ci")
+                        .await
+                        .unwrap();
 
-        installation
-            .update_status_check(commit, CheckStatus::Running)
-            .await
-            .unwrap();
+                    installation
+                        .update_status_check(commit, CheckStatus::Running)
+                        .await
+                        .unwrap();
 
-        let configuration = installation
-            .read_file_contents(".ci/lint-and-test.json")
-            .await
-            .unwrap();
-        let configuration = serde_json::from_str(&configuration).unwrap();
+                    let configuration = installation
+                        .read_file_contents(".ci/lint-and-test.json")
+                        .await
+                        .unwrap();
+                    let configuration = serde_json::from_str(&configuration).unwrap();
 
-        let mut pipeline = Pipeline::new(PipelineId::new(1), configuration);
+                    let mut pipeline = Pipeline::new(PipelineId::new(1), configuration);
 
-        let docker = Docker::connect_with_socket_defaults().unwrap();
-        let mut runner = runner::PipelineRunner {
-            docker: &docker,
-            access_token: installation.get_access_token(),
-            pipeline: &mut pipeline,
-        };
-        runner.run().await.unwrap();
+                    let docker = Docker::connect_with_socket_defaults().unwrap();
+                    let mut runner = runner::PipelineRunner {
+                        docker: &docker,
+                        access_token: installation.get_access_token(),
+                        pipeline: &mut pipeline,
+                    };
+                    runner.run().await.unwrap();
 
-        installation
-            .update_status_check(
-                commit,
-                match pipeline.status {
-                    PipelineStatus::Passed => CheckStatus::Passed,
-                    PipelineStatus::Failed => CheckStatus::Failed,
-                    PipelineStatus::Pending => CheckStatus::Pending,
-                    PipelineStatus::Running => CheckStatus::Running,
-                },
-            )
-            .await
-            .unwrap();
-    });
-
-    (StatusCode::CREATED, "OK")
+                    installation
+                        .update_status_check(
+                            commit,
+                            match pipeline.status {
+                                PipelineStatus::Passed => CheckStatus::Passed,
+                                PipelineStatus::Failed => CheckStatus::Failed,
+                                PipelineStatus::Pending => CheckStatus::Pending,
+                                PipelineStatus::Running => CheckStatus::Running,
+                            },
+                        )
+                        .await
+                        .unwrap();
+                });
+                (StatusCode::CREATED, "OK")
+            }
+            Ok(_) => (StatusCode::NO_CONTENT, "OK"),
+            Err(_) => (StatusCode::BAD_REQUEST, "Failed to parse event"),
+        }
+    } else {
+        (StatusCode::BAD_REQUEST, "Missing header x-github-event")
+    }
 }
 
 #[cfg(test)]
