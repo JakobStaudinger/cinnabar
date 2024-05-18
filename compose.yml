@@ -10,6 +10,7 @@ services:
     environment:
       GITHUB_APP_ID: $GITHUB_APP_ID
       GITHUB_PRIVATE_KEY: $GITHUB_PRIVATE_KEY
+      GITHUB_WEBHOOK_SECRET: $GITHUB_WEBHOOK_SECRET
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
 
