@@ -14,7 +14,7 @@ pub async fn main() -> Result<(), io::Error> {
 }
 
 async fn start_http_server() -> Result<(), io::Error> {
-    let app = Router::new().route("/api/webhook", post(handle_webhook));
+    let app = Router::new().route("/webhook", post(handle_webhook));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:42069").await?;
 
