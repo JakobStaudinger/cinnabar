@@ -8,7 +8,7 @@ use octocrab::{
     params::checks::{CheckRunConclusion, CheckRunStatus},
     Octocrab,
 };
-use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretString};
 
 use self::error::GitHubError;
 
@@ -17,11 +17,11 @@ pub struct GitHub {
 }
 
 impl GitHub {
-    pub fn build(app_id: u64, private_key: &str) -> Result<Self, GitHubError> {
+    pub fn build(app_id: u64, private_key: &SecretString) -> Result<Self, GitHubError> {
         let octocrab = Octocrab::builder()
             .app(
                 AppId(app_id),
-                EncodingKey::from_rsa_pem(private_key.as_bytes())?,
+                EncodingKey::from_rsa_pem(private_key.expose_secret().as_bytes())?,
             )
             .build()?;
 

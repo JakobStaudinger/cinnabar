@@ -1,4 +1,5 @@
 use axum::{
+    extract::State,
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::post,
@@ -16,14 +17,43 @@ use tokio::signal::{self, unix::SignalKind};
 
 mod runner;
 
-pub async fn main() -> Result<(), io::Error> {
-    start_http_server().await?;
+#[derive(Clone)]
+struct AppConfig {
+    github_webhook_secret: SecretString,
+    github_app_id: u64,
+    github_private_key: SecretString,
+}
+
+pub async fn main() -> Result<(), String> {
+    let github_webhook_secret = SecretString::new(
+        std::env::var("GITHUB_WEBHOOK_SECRET")
+            .map_err(|_| "Please provide the GITHUB_WEBHOOK_SECRET environment variable")?,
+    );
+    let github_app_id = std::env::var("GITHUB_APP_ID")
+        .map_err(|_| "Please provide the GITHUB_APP_ID environment variable")?
+        .parse()
+        .map_err(|_| "GITHUB_APP_ID needs to be an integer")?;
+    let github_private_key = SecretString::new(
+        std::env::var("GITHUB_PRIVATE_KEY")
+            .map_err(|_| "Please provide the GITHUB_PRIVATE_KEY environment variable")?,
+    );
+    let config = AppConfig {
+        github_webhook_secret,
+        github_app_id,
+        github_private_key,
+    };
+
+    start_http_server(config)
+        .await
+        .map_err(|e| format!("Failed to start HTTP server {e}"))?;
 
     Ok(())
 }
 
-async fn start_http_server() -> Result<(), io::Error> {
-    let app = Router::new().route("/webhook", post(handle_webhook));
+async fn start_http_server(config: AppConfig) -> Result<(), io::Error> {
+    let app = Router::new()
+        .route("/webhook", post(handle_webhook))
+        .with_state(config);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:42069").await?;
 
@@ -58,10 +88,12 @@ async fn shutdown_signal() {
     }
 }
 
-async fn handle_webhook(headers: HeaderMap, body: String) -> impl IntoResponse {
-    let webhook_secret = SecretString::new(std::env::var("GITHUB_WEBHOOK_SECRET").unwrap());
-
-    if let Err(message) = verify_checksum(&headers, &body, &webhook_secret) {
+async fn handle_webhook(
+    State(config): State<AppConfig>,
+    headers: HeaderMap,
+    body: String,
+) -> impl IntoResponse {
+    if let Err(message) = verify_checksum(&headers, &body, &config.github_webhook_secret) {
         return (StatusCode::BAD_REQUEST, message);
     }
 
@@ -70,14 +102,12 @@ async fn handle_webhook(headers: HeaderMap, body: String) -> impl IntoResponse {
     match trigger {
         Ok(Some(trigger)) => {
             tokio::spawn(async move {
-                let github_app_id = std::env::var("GITHUB_APP_ID").unwrap().parse().unwrap();
-                let github_private_key = std::env::var("GITHUB_PRIVATE_KEY").unwrap();
-
                 let commit = match &trigger.event {
                     TriggerEvent::Push { commit, .. } => commit,
                 };
 
-                let github = GitHub::build(github_app_id, &github_private_key).unwrap();
+                let github =
+                    GitHub::build(config.github_app_id, &config.github_private_key).unwrap();
                 let installation = github
                     .get_installation(
                         &trigger.repository_owner,

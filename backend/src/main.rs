@@ -1,6 +1,4 @@
-use std::io;
-
 #[tokio::main]
-async fn main() -> Result<(), io::Error> {
+async fn main() -> Result<(), String> {
     backend::main().await
 }
