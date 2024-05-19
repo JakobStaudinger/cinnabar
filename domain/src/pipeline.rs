@@ -44,6 +44,21 @@ pub enum PipelineStatus {
     Failed,
 }
 
+pub enum TriggerConfiguration {
+    Push { branch: Option<String> },
+}
+
+pub struct Trigger {
+    pub repository_owner: String,
+    pub repository_name: String,
+    pub installation_id: u64,
+    pub event: TriggerEvent,
+}
+
+pub enum TriggerEvent {
+    Push { branch: String, commit: String },
+}
+
 impl Pipeline {
     pub fn new(id: PipelineId, configuration: PipelineConfiguration) -> Self {
         let steps = configuration

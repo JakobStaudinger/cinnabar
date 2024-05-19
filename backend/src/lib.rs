@@ -5,9 +5,10 @@ use axum::{
     Router,
 };
 use bollard::Docker;
-use domain::{Pipeline, PipelineId, PipelineStatus};
+use domain::{Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
 use hmac::{Hmac, Mac};
 use secrecy::{ExposeSecret, SecretString};
+use serde::Deserialize;
 use sha2::Sha256;
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
 use std::io;
@@ -64,61 +65,63 @@ async fn handle_webhook(headers: HeaderMap, body: String) -> impl IntoResponse {
         return (StatusCode::BAD_REQUEST, message);
     }
 
-    if let Some(event) = headers.get("x-github-event") {
-        match event.to_str() {
-            Ok("push") => {
-                tokio::spawn(async {
-                    let github_app_id = std::env::var("GITHUB_APP_ID").unwrap().parse().unwrap();
-                    let github_private_key = std::env::var("GITHUB_PRIVATE_KEY").unwrap();
-                    let commit = "HEAD";
+    let trigger = parse_trigger(headers, body);
 
-                    let github = GitHub::build(github_app_id, &github_private_key).unwrap();
-                    let installation = github
-                        .get_installation("JakobStaudinger", "rust-ci")
-                        .await
-                        .unwrap();
+    match trigger {
+        Ok(Some(trigger)) => {
+            tokio::spawn(async move {
+                let github_app_id = std::env::var("GITHUB_APP_ID").unwrap().parse().unwrap();
+                let github_private_key = std::env::var("GITHUB_PRIVATE_KEY").unwrap();
 
-                    installation
-                        .update_status_check(commit, CheckStatus::Running)
-                        .await
-                        .unwrap();
+                let commit = match &trigger.event {
+                    TriggerEvent::Push { commit, .. } => commit,
+                };
 
-                    let configuration = installation
-                        .read_file_contents(".ci/lint-and-test.json")
-                        .await
-                        .unwrap();
-                    let configuration = serde_json::from_str(&configuration).unwrap();
+                let github = GitHub::build(github_app_id, &github_private_key).unwrap();
+                let installation = github
+                    .get_installation(&trigger.repository_owner, &trigger.repository_name)
+                    .await
+                    .unwrap();
 
-                    let mut pipeline = Pipeline::new(PipelineId::new(1), configuration);
+                installation
+                    .update_status_check(commit, CheckStatus::Running)
+                    .await
+                    .unwrap();
 
-                    let docker = Docker::connect_with_socket_defaults().unwrap();
-                    let mut runner = runner::PipelineRunner {
-                        docker: &docker,
-                        access_token: installation.get_access_token(),
-                        pipeline: &mut pipeline,
-                    };
-                    runner.run().await.unwrap();
+                let configuration = installation
+                    .read_file_contents(".ci/lint-and-test.json")
+                    .await
+                    .unwrap();
+                let configuration = serde_json::from_str(&configuration).unwrap();
 
-                    installation
-                        .update_status_check(
-                            commit,
-                            match pipeline.status {
-                                PipelineStatus::Passed => CheckStatus::Passed,
-                                PipelineStatus::Failed => CheckStatus::Failed,
-                                PipelineStatus::Pending => CheckStatus::Pending,
-                                PipelineStatus::Running => CheckStatus::Running,
-                            },
-                        )
-                        .await
-                        .unwrap();
-                });
-                (StatusCode::CREATED, "OK")
-            }
-            Ok(_) => (StatusCode::NO_CONTENT, "OK"),
-            Err(_) => (StatusCode::BAD_REQUEST, "Failed to parse event"),
+                let mut pipeline = Pipeline::new(PipelineId::new(1), configuration);
+
+                let docker = Docker::connect_with_socket_defaults().unwrap();
+                let mut runner = runner::PipelineRunner {
+                    docker: &docker,
+                    access_token: installation.get_access_token(),
+                    pipeline: &mut pipeline,
+                };
+                runner.run().await.unwrap();
+
+                installation
+                    .update_status_check(
+                        commit,
+                        match pipeline.status {
+                            PipelineStatus::Passed => CheckStatus::Passed,
+                            PipelineStatus::Failed => CheckStatus::Failed,
+                            PipelineStatus::Pending => CheckStatus::Pending,
+                            PipelineStatus::Running => CheckStatus::Running,
+                        },
+                    )
+                    .await
+                    .unwrap();
+            });
+
+            (StatusCode::CREATED, "OK")
         }
-    } else {
-        (StatusCode::BAD_REQUEST, "Missing header x-github-event")
+        Ok(None) => (StatusCode::NO_CONTENT, "OK"),
+        Err(message) => (StatusCode::BAD_REQUEST, message),
     }
 }
 
@@ -147,6 +150,68 @@ fn verify_checksum(
 
     mac.verify_slice(expected_signature.as_slice())
         .map_err(|_| "Failed to verify sha256 checksum")
+}
+
+fn parse_trigger(headers: HeaderMap, body: String) -> Result<Option<Trigger>, &'static str> {
+    let event = headers.get("x-github-event");
+    let event = event.ok_or("Missing header x-github-event")?;
+
+    match event.to_str() {
+        Ok("push") => {
+            #[derive(Deserialize)]
+            struct PushEvent {
+                r#ref: String,
+                head_commit: Option<HeadCommit>,
+                repository: Repository,
+                installation: Installation,
+            }
+
+            #[derive(Deserialize)]
+            struct HeadCommit {
+                id: String,
+            }
+
+            #[derive(Deserialize)]
+            struct Repository {
+                name: String,
+                owner: RepositoryOwner,
+            }
+
+            #[derive(Deserialize)]
+            struct RepositoryOwner {
+                name: String,
+            }
+
+            #[derive(Deserialize)]
+            struct Installation {
+                id: u64,
+            }
+
+            let body = serde_json::from_str::<PushEvent>(&body);
+            let body = body.map_err(|_| "Failed to parse payload")?;
+
+            let repository_owner = body.repository.owner.name;
+            let repository_name = body.repository.name;
+            let installation_id = body.installation.id;
+            body.r#ref
+                .strip_prefix("refs/heads/")
+                .zip(body.head_commit)
+                .map_or(Ok(None), move |(branch, commit)| {
+                    let branch = branch.to_string();
+                    let commit = commit.id;
+                    let event = TriggerEvent::Push { branch, commit };
+
+                    Ok(Some(Trigger {
+                        repository_owner,
+                        repository_name,
+                        installation_id,
+                        event,
+                    }))
+                })
+        }
+        Ok(_) => Ok(None),
+        Err(_) => Err("Failed to parse event"),
+    }
 }
 
 #[cfg(test)]
