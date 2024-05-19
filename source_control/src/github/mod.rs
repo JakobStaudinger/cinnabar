@@ -4,7 +4,7 @@ use crate::{CheckStatus, SourceControl, SourceControlInstallation};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use jsonwebtoken::EncodingKey;
 use octocrab::{
-    models::AppId,
+    models::{AppId, InstallationId},
     params::checks::{CheckRunConclusion, CheckRunStatus},
     Octocrab,
 };
@@ -37,19 +37,13 @@ impl SourceControl for GitHub {
         &self,
         owner: &str,
         repo: &str,
+        installation_id: u64,
     ) -> Result<Self::Installation, Self::Error> {
-        let installation = self
+        let (octocrab, token) = self
             .octocrab
-            .apps()
-            .get_repository_installation(owner, repo)
+            .installation_and_token(InstallationId(installation_id))
             .await?;
 
-        let (_, token) = self
-            .octocrab
-            .installation_and_token(installation.id)
-            .await?;
-
-        let octocrab = Octocrab::builder().personal_token(token.clone()).build()?;
         let owner = owner.to_owned();
         let repo = repo.to_owned();
 

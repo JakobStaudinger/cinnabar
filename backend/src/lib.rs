@@ -79,7 +79,11 @@ async fn handle_webhook(headers: HeaderMap, body: String) -> impl IntoResponse {
 
                 let github = GitHub::build(github_app_id, &github_private_key).unwrap();
                 let installation = github
-                    .get_installation(&trigger.repository_owner, &trigger.repository_name)
+                    .get_installation(
+                        &trigger.repository_owner,
+                        &trigger.repository_name,
+                        trigger.installation_id,
+                    )
                     .await
                     .unwrap();
 

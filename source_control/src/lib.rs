@@ -8,6 +8,7 @@ pub trait SourceControl {
         &self,
         owner: &str,
         repo: &str,
+        installation_id: u64,
     ) -> impl std::future::Future<Output = Result<Self::Installation, Self::Error>> + Send;
 }
 
