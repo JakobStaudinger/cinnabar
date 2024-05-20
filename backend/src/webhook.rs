@@ -171,4 +171,52 @@ mod tests {
             Err("Failed to verify sha256 checksum")
         );
     }
+
+    #[test]
+    fn verify_checksum_should_return_err_if_header_is_malformed() {
+        let secret = SecretString::new("It's a Secret to Everybody".to_string());
+        let body = "Hello, World!".to_string();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "X-Hub-Signature-256",
+            HeaderValue::from_static(
+                "757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17",
+            ),
+        );
+        assert_eq!(
+            verify_checksum(&headers, &body, &secret),
+            Err("Malformed sha256 header")
+        );
+    }
+
+    #[test]
+    fn verify_checksum_should_return_err_if_sha_is_no_hex_string() {
+        let secret = SecretString::new("It's a Secret to Everybody".to_string());
+        let body = "Hello, World!".to_string();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "X-Hub-Signature-256",
+            HeaderValue::from_static("sha256=wxyz"),
+        );
+        assert_eq!(
+            verify_checksum(&headers, &body, &secret),
+            Err("Failed to parse sha256 signature")
+        );
+    }
+
+    #[test]
+    fn verify_checksum_should_return_err_if_header_is_wrongly_encoded() {
+        let secret = SecretString::new("It's a Secret to Everybody".to_string());
+        let body = "Hello, World!".to_string();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "X-Hub-Signature-256",
+            HeaderValue::from_str("héllò").unwrap(),
+        );
+
+        assert_eq!(
+            verify_checksum(&headers, &body, &secret),
+            Err("Failed to parse x-hub-signature-256 header")
+        );
+    }
 }
