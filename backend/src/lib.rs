@@ -131,7 +131,8 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
                 .await
                 .unwrap();
 
-            let mut pipeline = Pipeline::new(PipelineId::new(1), configuration);
+            let pipeline_id = rand::random();
+            let mut pipeline = Pipeline::new(PipelineId::new(pipeline_id), configuration);
 
             let docker = Docker::connect_with_socket_defaults().unwrap();
             let mut runner = runner::PipelineRunner {
