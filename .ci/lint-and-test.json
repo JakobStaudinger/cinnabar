@@ -1,5 +1,15 @@
 {
   "name": "Lint & Test",
+  "trigger": [
+    {
+      "event": "push",
+      "branch": "main"
+    },
+    {
+      "event": "push",
+      "branch": "test"
+    }
+  ],
   "steps": [
     {
       "name": "clone",

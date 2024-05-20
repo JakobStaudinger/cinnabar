@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct PipelineConfiguration {
     pub name: String,
+    pub trigger: Vec<TriggerConfiguration>,
     pub steps: Vec<StepConfiguration>,
 }
 
@@ -44,7 +45,10 @@ pub enum PipelineStatus {
     Failed,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(tag = "event")]
 pub enum TriggerConfiguration {
+    #[serde(rename = "push")]
     Push { branch: Option<String> },
 }
 
@@ -109,5 +113,65 @@ impl StepId {
 impl Display for StepId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl TriggerConfiguration {
+    pub fn matches(&self, trigger: &Trigger) -> bool {
+        match self {
+            Self::Push { branch } => match (branch, &trigger.event) {
+                (Some(expected_branch), TriggerEvent::Push { branch, .. }) => {
+                    expected_branch == branch
+                }
+                (None, TriggerEvent::Push { .. }) => true,
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::TriggerConfiguration;
+
+    #[test]
+    fn deserialize_push_trigger_configuration() {
+        let json = r#"
+            {
+                "event": "push",
+                "branch": "main"
+            }
+        "#;
+
+        let trigger: TriggerConfiguration = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            trigger,
+            TriggerConfiguration::Push {
+                branch: Some("main".to_owned())
+            }
+        )
+    }
+
+    #[test]
+    fn deserialize_push_trigger_configuration_without_branch() {
+        let json = r#"
+        {
+            "event": "push"
+        }
+        "#;
+
+        let trigger: TriggerConfiguration = serde_json::from_str(json).unwrap();
+        assert_eq!(trigger, TriggerConfiguration::Push { branch: None })
+    }
+
+    #[test]
+    #[should_panic = "unknown variant `pull`"]
+    fn deserialize_unknown_trigger_configuration() {
+        let json = r#"
+        {
+            "event": "pull"
+        }
+        "#;
+
+        serde_json::from_str::<TriggerConfiguration>(json).unwrap();
     }
 }

@@ -1,6 +1,6 @@
 use axum::{routing::post, Router};
 use bollard::Docker;
-use domain::{Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
+use domain::{Pipeline, PipelineConfiguration, PipelineId, PipelineStatus, Trigger, TriggerEvent};
 use secrecy::SecretString;
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
 use std::{io, sync::Arc};
@@ -20,7 +20,7 @@ struct AppConfig {
 
 #[derive(Clone)]
 struct Callbacks {
-    trigger: Arc<dyn Send + Sync + Fn(Trigger, AppConfig) -> ()>,
+    trigger: Arc<dyn Send + Sync + Fn(Trigger, AppConfig)>,
 }
 
 #[derive(Clone)]
@@ -119,38 +119,40 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
             .await
             .unwrap();
 
-        installation
-            .update_status_check(commit, CheckStatus::Running)
-            .await
-            .unwrap();
-
         let configuration = installation
             .read_file_contents(".ci/lint-and-test.json")
             .await
             .unwrap();
-        let configuration = serde_json::from_str(&configuration).unwrap();
+        let configuration: PipelineConfiguration = serde_json::from_str(&configuration).unwrap();
 
-        let mut pipeline = Pipeline::new(PipelineId::new(1), configuration);
+        if configuration.trigger.iter().any(|t| t.matches(&trigger)) {
+            installation
+                .update_status_check(commit, CheckStatus::Running)
+                .await
+                .unwrap();
 
-        let docker = Docker::connect_with_socket_defaults().unwrap();
-        let mut runner = runner::PipelineRunner {
-            docker: &docker,
-            access_token: installation.get_access_token(),
-            pipeline: &mut pipeline,
-        };
-        runner.run().await.unwrap();
+            let mut pipeline = Pipeline::new(PipelineId::new(1), configuration);
 
-        installation
-            .update_status_check(
-                commit,
-                match pipeline.status {
-                    PipelineStatus::Passed => CheckStatus::Passed,
-                    PipelineStatus::Failed => CheckStatus::Failed,
-                    PipelineStatus::Pending => CheckStatus::Pending,
-                    PipelineStatus::Running => CheckStatus::Running,
-                },
-            )
-            .await
-            .unwrap();
+            let docker = Docker::connect_with_socket_defaults().unwrap();
+            let mut runner = runner::PipelineRunner {
+                docker: &docker,
+                access_token: installation.get_access_token(),
+                pipeline: &mut pipeline,
+            };
+            runner.run().await.unwrap();
+
+            installation
+                .update_status_check(
+                    commit,
+                    match pipeline.status {
+                        PipelineStatus::Passed => CheckStatus::Passed,
+                        PipelineStatus::Failed => CheckStatus::Failed,
+                        PipelineStatus::Pending => CheckStatus::Pending,
+                        PipelineStatus::Running => CheckStatus::Running,
+                    },
+                )
+                .await
+                .unwrap();
+        }
     });
 }
