@@ -4,7 +4,10 @@ use domain::{Pipeline, PipelineConfiguration, PipelineId, PipelineStatus, Trigge
 use secrecy::SecretString;
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
 use std::{io, sync::Arc};
-use tokio::signal::{self, unix::SignalKind};
+use tokio::{
+    signal::{self, unix::SignalKind},
+    task::JoinSet,
+};
 
 use crate::webhook::handle_webhook;
 
@@ -119,41 +122,67 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
             .await
             .unwrap();
 
-        let configuration = installation
-            .read_file_contents(".ci/lint-and-test.json")
-            .await
-            .unwrap();
-        let configuration: PipelineConfiguration = serde_json::from_str(&configuration).unwrap();
+        let pipeline_files = [".ci/pipelines/lint.json", ".ci/pipelines/test.json"];
 
-        if configuration.trigger.iter().any(|t| t.matches(&trigger)) {
-            installation
-                .update_status_check(commit, CheckStatus::Running)
-                .await
-                .unwrap();
+        let mut join_set = JoinSet::new();
 
-            let pipeline_id = rand::random();
-            let mut pipeline = Pipeline::new(PipelineId::new(pipeline_id), configuration);
+        for file in pipeline_files {
+            let installation = installation.clone();
+            let commit = commit.clone();
+            let trigger = trigger.clone();
 
-            let docker = Docker::connect_with_socket_defaults().unwrap();
-            let mut runner = runner::PipelineRunner {
-                docker: &docker,
-                access_token: installation.get_access_token(),
-                pipeline: &mut pipeline,
-            };
-            runner.run().await.unwrap();
+            join_set.spawn(async move {
+                let configuration = installation
+                    .read_file_contents(file, &commit)
+                    .await
+                    .unwrap();
+                let configuration: PipelineConfiguration =
+                    serde_json::from_str(&configuration).unwrap();
 
-            installation
-                .update_status_check(
-                    commit,
-                    match pipeline.status {
-                        PipelineStatus::Passed => CheckStatus::Passed,
-                        PipelineStatus::Failed => CheckStatus::Failed,
-                        PipelineStatus::Pending => CheckStatus::Pending,
-                        PipelineStatus::Running => CheckStatus::Running,
-                    },
-                )
-                .await
-                .unwrap();
+                if configuration
+                    .trigger
+                    .iter()
+                    .any(|trigger_configuration| trigger_configuration.matches(&trigger))
+                {
+                    let pipeline_id = rand::random();
+                    let mut pipeline = Pipeline::new(PipelineId::new(pipeline_id), configuration);
+
+                    installation
+                        .update_status_check(
+                            &commit,
+                            &pipeline.configuration.name,
+                            pipeline.id.0,
+                            CheckStatus::Running,
+                        )
+                        .await
+                        .unwrap();
+
+                    let docker = Docker::connect_with_socket_defaults().unwrap();
+                    let mut runner = runner::PipelineRunner {
+                        docker: &docker,
+                        access_token: installation.get_access_token(),
+                        pipeline: &mut pipeline,
+                    };
+                    runner.run().await.unwrap();
+
+                    installation
+                        .update_status_check(
+                            &commit,
+                            &pipeline.configuration.name,
+                            pipeline.id.0,
+                            match pipeline.status {
+                                PipelineStatus::Passed => CheckStatus::Passed,
+                                PipelineStatus::Failed => CheckStatus::Failed,
+                                PipelineStatus::Pending => CheckStatus::Pending,
+                                PipelineStatus::Running => CheckStatus::Running,
+                            },
+                        )
+                        .await
+                        .unwrap();
+                }
+            });
         }
+
+        while join_set.join_next().await.is_some() {}
     });
 }

@@ -25,7 +25,7 @@ pub struct Pipeline {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct PipelineId(usize);
+pub struct PipelineId(pub usize);
 
 #[derive(Serialize, Deserialize)]
 pub struct Step {
@@ -52,6 +52,7 @@ pub enum TriggerConfiguration {
     Push { branch: Option<String> },
 }
 
+#[derive(Clone)]
 pub struct Trigger {
     pub repository_owner: String,
     pub repository_name: String,
@@ -59,6 +60,7 @@ pub struct Trigger {
     pub event: TriggerEvent,
 }
 
+#[derive(Clone)]
 pub enum TriggerEvent {
     Push { branch: String, commit: String },
 }

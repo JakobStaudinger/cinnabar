@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use secrecy::SecretString;
 
 pub trait SourceControl {
@@ -9,7 +11,7 @@ pub trait SourceControl {
         owner: &str,
         repo: &str,
         installation_id: u64,
-    ) -> impl std::future::Future<Output = Result<Self::Installation, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<Self::Installation, Self::Error>> + Send;
 }
 
 pub trait SourceControlInstallation {
@@ -19,12 +21,15 @@ pub trait SourceControlInstallation {
     fn read_file_contents(
         &self,
         path: &str,
-    ) -> impl std::future::Future<Output = Result<String, Self::Error>> + Send;
+        r#ref: &str,
+    ) -> impl Future<Output = Result<String, Self::Error>> + Send;
     fn update_status_check(
         &self,
         commit: &str,
+        name: &str,
+        id: usize,
         status: CheckStatus,
-    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send;
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }
 
 pub enum CheckStatus {

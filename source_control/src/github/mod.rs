@@ -56,6 +56,7 @@ impl SourceControl for GitHub {
     }
 }
 
+#[derive(Clone)]
 pub struct GitHubInstallation {
     octocrab: Octocrab,
     owner: String,
@@ -70,12 +71,13 @@ impl SourceControlInstallation for GitHubInstallation {
         &self.token
     }
 
-    async fn read_file_contents(&self, path: &str) -> Result<String, Self::Error> {
+    async fn read_file_contents(&self, path: &str, r#ref: &str) -> Result<String, Self::Error> {
         let content = self
             .octocrab
             .repos(&self.owner, &self.repo)
             .get_content()
             .path(path)
+            .r#ref(r#ref)
             .send()
             .await?;
 
@@ -102,12 +104,14 @@ impl SourceControlInstallation for GitHubInstallation {
     async fn update_status_check(
         &self,
         commit: &str,
+        name: &str,
+        id: usize,
         status: CheckStatus,
     ) -> Result<(), Self::Error> {
         let checks = self.octocrab.checks(&self.owner, &self.repo);
-        let mut check_run = checks.create_check_run("rust ci", commit);
+        let mut check_run = checks.create_check_run(name, commit);
 
-        check_run = check_run.external_id("1").status(match status {
+        check_run = check_run.external_id(id.to_string()).status(match status {
             CheckStatus::Pending => CheckRunStatus::Queued,
             CheckStatus::Running => CheckRunStatus::InProgress,
             _ => CheckRunStatus::Completed,
