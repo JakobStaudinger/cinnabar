@@ -4,10 +4,6 @@
     {
       "event": "push",
       "branch": "main"
-    },
-    {
-      "event": "push",
-      "branch": "test"
     }
   ],
   "steps": [
