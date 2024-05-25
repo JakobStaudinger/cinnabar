@@ -1,4 +1,4 @@
-use std::future::Future;
+use std::{future::Future, path::PathBuf};
 
 use secrecy::SecretString;
 
@@ -20,9 +20,14 @@ pub trait SourceControlInstallation {
     fn get_access_token(&self) -> &SecretString;
     fn read_file_contents(
         &self,
+        sha: &str,
+    ) -> impl Future<Output = Result<String, Self::Error>> + Send;
+    fn read_folder(
+        &self,
         path: &str,
         r#ref: &str,
-    ) -> impl Future<Output = Result<String, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<Folder, Self::Error>> + Send;
+    fn print_rate_limit(&self) -> impl Future<Output = Result<(), Self::Error>> + Send;
     fn update_status_check(
         &self,
         commit: &str,
@@ -30,6 +35,17 @@ pub trait SourceControlInstallation {
         id: usize,
         status: CheckStatus,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+}
+
+#[derive(Debug)]
+pub struct Folder {
+    pub items: Vec<File>,
+}
+
+#[derive(Debug)]
+pub struct File {
+    pub sha: String,
+    pub path: PathBuf,
 }
 
 pub enum CheckStatus {

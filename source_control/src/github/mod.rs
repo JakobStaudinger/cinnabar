@@ -1,6 +1,8 @@
 pub mod error;
 
-use crate::{CheckStatus, SourceControl, SourceControlInstallation};
+use std::path::Path;
+
+use crate::{CheckStatus, File, Folder, SourceControl, SourceControlInstallation};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use jsonwebtoken::EncodingKey;
 use octocrab::{
@@ -9,6 +11,7 @@ use octocrab::{
     Octocrab,
 };
 use secrecy::{ExposeSecret, SecretString};
+use serde::{Deserialize, Serialize};
 
 use self::error::GitHubError;
 
@@ -71,34 +74,80 @@ impl SourceControlInstallation for GitHubInstallation {
         &self.token
     }
 
-    async fn read_file_contents(&self, path: &str, r#ref: &str) -> Result<String, Self::Error> {
-        let content = self
+    async fn read_file_contents(&self, sha: &str) -> Result<String, Self::Error> {
+        #[derive(Deserialize, Debug)]
+        struct GitBlob {
+            content: String,
+        }
+
+        let GitBlob { content } = self
             .octocrab
-            .repos(&self.owner, &self.repo)
-            .get_content()
-            .path(path)
-            .r#ref(r#ref)
-            .send()
+            .get(
+                format!("/repos/{}/{}/git/blobs/{}", self.owner, self.repo, sha),
+                None::<&()>,
+            )
             .await?;
 
         let content = String::from_utf8_lossy(
             STANDARD
-                .decode(
-                    content.items[0]
-                        .content
-                        .as_ref()
-                        .ok_or(GitHubError::Generic(format!(
-                            "could not get content of {path}"
-                        )))?
-                        .split('\n')
-                        .collect::<String>(),
-                )
-                .map_err(|_| GitHubError::Generic(format!("could not decode contents of {path}")))?
+                .decode(content.split("\n").collect::<String>())
+                .map_err(|_| GitHubError::Generic(format!("could not decode contents of {sha}")))?
                 .as_ref(),
         )
         .to_string();
 
         Ok(content)
+    }
+
+    async fn read_folder(&self, path: &str, r#ref: &str) -> Result<Folder, Self::Error> {
+        let path = Path::new(path);
+        let r#ref = match path.parent() {
+            None => r#ref.to_string(),
+            Some(parent) => {
+                let parent = parent.to_str().ok_or(GitHubError::Generic(
+                    "Could not convert path to str".to_string(),
+                ))?;
+
+                let content = self
+                    .octocrab
+                    .repos(&self.owner, &self.repo)
+                    .get_content()
+                    .path(parent)
+                    .r#ref(r#ref)
+                    .send()
+                    .await?;
+
+                content
+                    .items
+                    .into_iter()
+                    .find(|item| Path::new(item.path.as_str()) == path)
+                    .ok_or(GitHubError::Generic(
+                        "Could not find file in tree".to_string(),
+                    ))?
+                    .sha
+            }
+        };
+
+        let GitTree { tree, .. } = self.get_tree(&r#ref).await?;
+
+        let items = tree
+            .into_iter()
+            .filter_map(|sub_tree| match &sub_tree.r#type[..] {
+                "blob" => Some(File {
+                    sha: sub_tree.sha,
+                    path: path.join(sub_tree.path),
+                }),
+                _ => None,
+            })
+            .collect();
+
+        Ok(Folder { items })
+    }
+
+    async fn print_rate_limit(&self) -> Result<(), Self::Error> {
+        let limit = self.octocrab.ratelimit().get().await?;
+        println!("{:?}", limit.resources.core);
+        Ok(())
     }
 
     async fn update_status_check(
@@ -128,5 +177,36 @@ impl SourceControlInstallation for GitHubInstallation {
         check_run.send().await?;
 
         Ok(())
+    }
+}
+
+#[derive(Deserialize, Debug)]
+struct GitTree {
+    tree: Vec<GitSubTree>,
+}
+
+#[derive(Deserialize, Debug)]
+struct GitSubTree {
+    path: String,
+    r#type: String,
+    sha: String,
+}
+
+impl GitHubInstallation {
+    async fn get_tree(&self, r#ref: &str) -> Result<GitTree, GitHubError> {
+        #[derive(Serialize)]
+        struct Params {
+            recursive: bool,
+        }
+
+        let response = self
+            .octocrab
+            .get(
+                format!("/repos/{}/{}/git/trees/{}", self.owner, self.repo, r#ref),
+                Some(&Params { recursive: true }),
+            )
+            .await?;
+
+        Ok(response)
     }
 }

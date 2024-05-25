@@ -122,7 +122,11 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
             .await
             .unwrap();
 
-        let pipeline_files = [".ci/pipelines/lint.json", ".ci/pipelines/test.json"];
+        let pipeline_files = installation.read_folder(".ci", commit).await.unwrap();
+        let pipeline_files = pipeline_files
+            .items
+            .into_iter()
+            .filter(|file| file.path.starts_with(".ci/pipelines/"));
 
         let mut join_set = JoinSet::new();
 
@@ -132,10 +136,7 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
             let trigger = trigger.clone();
 
             join_set.spawn(async move {
-                let configuration = installation
-                    .read_file_contents(file, &commit)
-                    .await
-                    .unwrap();
+                let configuration = installation.read_file_contents(&file.sha).await.unwrap();
                 let configuration: PipelineConfiguration =
                     serde_json::from_str(&configuration).unwrap();
 
