@@ -3,7 +3,7 @@
   "trigger": [
     {
       "event": "push",
-      "branch": "main"
+      "branch": "jsonnet"
     }
   ],
   "steps": [
