@@ -199,9 +199,8 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
             }
 
             let value = program.eval_value(&thunk, &mut Callbacks).unwrap();
-
-            let configuration: PipelineConfiguration =
-                serde_json::from_str(&value.to_string().unwrap()).unwrap();
+            let value = program.manifest_json(&value, false).unwrap();
+            let configuration: PipelineConfiguration = serde_json::from_str(&value).unwrap();
 
             join_set.spawn(async move {
                 if configuration
