@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG RUST_VERSION=1.77.2
+ARG RUST_VERSION=1.78.0
 ARG APP_NAME=backend
 
 FROM rust:${RUST_VERSION}-alpine AS build
