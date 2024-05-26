@@ -90,7 +90,7 @@ impl SourceControlInstallation for GitHubInstallation {
 
         let content = String::from_utf8_lossy(
             STANDARD
-                .decode(content.split("\n").collect::<String>())
+                .decode(content.split('\n').collect::<String>())
                 .map_err(|_| GitHubError::Generic(format!("could not decode contents of {sha}")))?
                 .as_ref(),
         )

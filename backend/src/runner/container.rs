@@ -54,7 +54,7 @@ impl<'a> Container<'a> {
             .as_ref()
             .map(|cache| {
                 cache
-                    .into_iter()
+                    .iter()
                     .map(|dir| {
                         format!(
                             "{}:{}",

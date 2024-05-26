@@ -27,7 +27,7 @@ impl<'a> PipelineRunner<'a> {
                 .steps
                 .iter()
                 .flat_map(|step| match &step.cache {
-                    Some(vec) => vec.into_iter().collect(),
+                    Some(vec) => vec.clone(),
                     None => vec![],
                 });
 
