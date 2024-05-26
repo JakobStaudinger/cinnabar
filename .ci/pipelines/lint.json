@@ -25,6 +25,9 @@
         "apk add musl-dev",
         "rustup component add clippy",
         "cargo clippy"
+      ],
+      "cache": [
+        "target"
       ]
     }
   ]

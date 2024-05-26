@@ -14,6 +14,7 @@ pub struct StepConfiguration {
     pub name: String,
     pub image: String,
     pub commands: Option<Vec<String>>,
+    pub cache: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize)]

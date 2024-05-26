@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use super::error::RunnerError as Error;
 use super::volume::Volume;
 use domain::{Pipeline, Step};
@@ -45,6 +47,31 @@ impl<'a> Container<'a> {
         let entrypoint = include_str!("./entrypoint.sh");
         let workspace_directory = "/ci/src";
 
+        let workspace_bind = format!("{}:{}", volume.name, workspace_directory);
+        let cache_binds = step
+            .configuration
+            .cache
+            .as_ref()
+            .map(|cache| {
+                cache
+                    .into_iter()
+                    .map(|dir| {
+                        format!(
+                            "{}:{}",
+                            dir,
+                            Path::new(workspace_directory).join(dir).to_str().unwrap()
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        let binds = [workspace_bind]
+            .into_iter()
+            .chain(cache_binds.into_iter())
+            .collect::<Vec<_>>();
+        let binds = Some(binds);
+
         let container = docker
             .create_container(
                 Some(CreateContainerOptions {
@@ -70,7 +97,7 @@ impl<'a> Container<'a> {
                         "echo \"$SCRIPT\" \"$COMMANDS\" | /bin/sh",
                     ]),
                     host_config: Some(HostConfig {
-                        binds: Some(vec![format!("{}:{}", volume.name, workspace_directory)]),
+                        binds,
                         ..Default::default()
                     }),
                     ..Default::default()

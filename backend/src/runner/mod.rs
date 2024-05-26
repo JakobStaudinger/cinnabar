@@ -21,6 +21,22 @@ impl<'a> PipelineRunner<'a> {
     pub async fn run(&mut self) -> Result<(), Error> {
         let volume_name = format!("workspace-pipeline-{}", self.pipeline.id);
         let volume = Volume::create(self.docker, volume_name).await?;
+        let cache_volumes =
+            self.pipeline
+                .configuration
+                .steps
+                .iter()
+                .flat_map(|step| match &step.cache {
+                    Some(vec) => vec.into_iter().collect(),
+                    None => vec![],
+                });
+
+        for cache in cache_volumes {
+            let result = Volume::create(self.docker, cache.clone()).await;
+            if let Err(error) = result {
+                println!("{error:?}");
+            }
+        }
 
         let mut pipeline_status = PipelineStatus::Running;
 

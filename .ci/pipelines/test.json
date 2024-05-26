@@ -24,6 +24,9 @@
       "commands": [
         "apk add musl-dev",
         "cargo test"
+      ],
+      "cache": [
+        "target"
       ]
     }
   ]
