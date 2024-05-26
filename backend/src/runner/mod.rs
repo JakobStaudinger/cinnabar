@@ -32,10 +32,7 @@ impl<'a> PipelineRunner<'a> {
                 });
 
         for cache in cache_volumes {
-            let result = Volume::create(self.docker, cache.clone()).await;
-            if let Err(error) = result {
-                println!("{error:?}");
-            }
+            Volume::create(self.docker, cache.clone()).await?;
         }
 
         let mut pipeline_status = PipelineStatus::Running;
