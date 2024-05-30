@@ -1,5 +1,5 @@
 {
-  name: 'Lint',
+  name: 'Test',
   trigger: [
     {
       event: 'push',
@@ -19,12 +19,11 @@
       ],
     },
     {
-      name: 'Lint',
+      name: 'Test',
       image: 'rust:1.78.0-alpine',
       commands: [
         'apk add musl-dev',
-        'rustup component add clippy',
-        'cargo clippy',
+        'cargo test',
       ],
       cache: [
         'target',
