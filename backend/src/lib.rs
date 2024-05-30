@@ -1,6 +1,10 @@
+mod parser;
+mod runner;
+mod webhook;
+
 use axum::{routing::post, Router};
 use bollard::Docker;
-use domain::{Pipeline, PipelineConfiguration, PipelineId, PipelineStatus, Trigger, TriggerEvent};
+use domain::{Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
 use secrecy::SecretString;
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
 use std::{io, sync::Arc};
@@ -9,10 +13,7 @@ use tokio::{
     task::JoinSet,
 };
 
-use crate::webhook::handle_webhook;
-
-mod runner;
-mod webhook;
+use crate::{parser::parse_pipeline, webhook::handle_webhook};
 
 #[derive(Clone)]
 struct AppConfig {
@@ -134,73 +135,8 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
             let installation = installation.clone();
             let commit = commit.clone();
             let trigger = trigger.clone();
-            let configuration = installation.read_file_contents(&file.sha).await.unwrap();
-            let mut program = rsjsonnet_lang::program::Program::new();
-            let (span_context, _) = program
-                .span_manager_mut()
-                .insert_source_context(configuration.len());
-            let thunk = program
-                .load_source(
-                    span_context,
-                    configuration.as_bytes(),
-                    true,
-                    &file.path.to_string_lossy(),
-                )
-                .unwrap();
-            struct Callbacks;
 
-            impl rsjsonnet_lang::program::Callbacks for Callbacks {
-                fn import(
-                    &mut self,
-                    program: &mut rsjsonnet_lang::program::Program,
-                    from: rsjsonnet_lang::span::SpanId,
-                    path: &str,
-                ) -> Result<rsjsonnet_lang::program::Thunk, rsjsonnet_lang::program::ImportError>
-                {
-                    unimplemented!();
-                }
-
-                fn import_str(
-                    &mut self,
-                    program: &mut rsjsonnet_lang::program::Program,
-                    from: rsjsonnet_lang::span::SpanId,
-                    path: &str,
-                ) -> Result<String, rsjsonnet_lang::program::ImportError> {
-                    unimplemented!();
-                }
-
-                fn import_bin(
-                    &mut self,
-                    program: &mut rsjsonnet_lang::program::Program,
-                    from: rsjsonnet_lang::span::SpanId,
-                    path: &str,
-                ) -> Result<Vec<u8>, rsjsonnet_lang::program::ImportError> {
-                    unimplemented!();
-                }
-
-                fn trace(
-                    &mut self,
-                    program: &mut rsjsonnet_lang::program::Program,
-                    message: &str,
-                    stack: &[rsjsonnet_lang::program::EvalStackTraceItem],
-                ) {
-                    unimplemented!();
-                }
-
-                fn native_call(
-                    &mut self,
-                    program: &mut rsjsonnet_lang::program::Program,
-                    name: &rsjsonnet_lang::interner::InternedStr,
-                    args: &[rsjsonnet_lang::program::Value],
-                ) -> Result<rsjsonnet_lang::program::Value, rsjsonnet_lang::program::NativeError>
-                {
-                    unimplemented!();
-                }
-            }
-
-            let value = program.eval_value(&thunk, &mut Callbacks).unwrap();
-            let value = program.manifest_json(&value, false).unwrap();
-            let configuration: PipelineConfiguration = serde_json::from_str(&value).unwrap();
+            let configuration = parse_pipeline(&file, &installation).await.unwrap();
 
             join_set.spawn(async move {
                 if configuration
