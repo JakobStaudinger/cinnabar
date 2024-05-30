@@ -47,46 +47,45 @@ struct Callbacks;
 impl rsjsonnet_lang::program::Callbacks for Callbacks {
     fn import(
         &mut self,
-        program: &mut rsjsonnet_lang::program::Program,
-        from: rsjsonnet_lang::span::SpanId,
-        path: &str,
+        _program: &mut rsjsonnet_lang::program::Program,
+        _from: rsjsonnet_lang::span::SpanId,
+        _path: &str,
     ) -> Result<rsjsonnet_lang::program::Thunk, rsjsonnet_lang::program::ImportError> {
-        unimplemented!();
+        Err(rsjsonnet_lang::program::ImportError)
     }
 
     fn import_str(
         &mut self,
-        program: &mut rsjsonnet_lang::program::Program,
-        from: rsjsonnet_lang::span::SpanId,
-        path: &str,
+        _program: &mut rsjsonnet_lang::program::Program,
+        _from: rsjsonnet_lang::span::SpanId,
+        _path: &str,
     ) -> Result<String, rsjsonnet_lang::program::ImportError> {
-        unimplemented!();
+        Err(rsjsonnet_lang::program::ImportError)
     }
 
     fn import_bin(
         &mut self,
-        program: &mut rsjsonnet_lang::program::Program,
-        from: rsjsonnet_lang::span::SpanId,
-        path: &str,
+        _program: &mut rsjsonnet_lang::program::Program,
+        _from: rsjsonnet_lang::span::SpanId,
+        _path: &str,
     ) -> Result<Vec<u8>, rsjsonnet_lang::program::ImportError> {
-        unimplemented!();
+        Err(rsjsonnet_lang::program::ImportError)
     }
 
     fn trace(
         &mut self,
-        program: &mut rsjsonnet_lang::program::Program,
-        message: &str,
-        stack: &[rsjsonnet_lang::program::EvalStackTraceItem],
+        _program: &mut rsjsonnet_lang::program::Program,
+        _message: &str,
+        _stack: &[rsjsonnet_lang::program::EvalStackTraceItem],
     ) {
-        unimplemented!();
     }
 
     fn native_call(
         &mut self,
-        program: &mut rsjsonnet_lang::program::Program,
-        name: &rsjsonnet_lang::interner::InternedStr,
-        args: &[rsjsonnet_lang::program::Value],
+        _program: &mut rsjsonnet_lang::program::Program,
+        _name: &rsjsonnet_lang::interner::InternedStr,
+        _args: &[rsjsonnet_lang::program::Value],
     ) -> Result<rsjsonnet_lang::program::Value, rsjsonnet_lang::program::NativeError> {
-        unimplemented!();
+        Err(rsjsonnet_lang::program::NativeError)
     }
 }
