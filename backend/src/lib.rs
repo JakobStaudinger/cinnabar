@@ -1,6 +1,10 @@
+mod parser;
+mod runner;
+mod webhook;
+
 use axum::{routing::post, Router};
 use bollard::Docker;
-use domain::{Pipeline, PipelineConfiguration, PipelineId, PipelineStatus, Trigger, TriggerEvent};
+use domain::{Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
 use secrecy::SecretString;
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
 use std::{io, sync::Arc};
@@ -9,10 +13,7 @@ use tokio::{
     task::JoinSet,
 };
 
-use crate::webhook::handle_webhook;
-
-mod runner;
-mod webhook;
+use crate::{parser::parse_pipeline, webhook::handle_webhook};
 
 #[derive(Clone)]
 struct AppConfig {
@@ -135,11 +136,9 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
             let commit = commit.clone();
             let trigger = trigger.clone();
 
-            join_set.spawn(async move {
-                let configuration = installation.read_file_contents(&file.sha).await.unwrap();
-                let configuration: PipelineConfiguration =
-                    serde_json::from_str(&configuration).unwrap();
+            let configuration = parse_pipeline(&file, &installation).await.unwrap();
 
+            join_set.spawn(async move {
                 if configuration
                     .trigger
                     .iter()
