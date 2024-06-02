@@ -46,14 +46,19 @@ pub enum PipelineStatus {
     Failed,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[serde(tag = "event")]
 pub enum TriggerConfiguration {
     #[serde(rename = "push")]
     Push { branch: Option<String> },
+    #[serde(rename = "pull_request")]
+    PullRequest {
+        target: Option<String>,
+        source: Option<String>,
+    },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Trigger {
     pub repository_owner: String,
     pub repository_name: String,
@@ -61,9 +66,16 @@ pub struct Trigger {
     pub event: TriggerEvent,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TriggerEvent {
-    Push { branch: String, commit: String },
+    Push { branch: Branch },
+    PullRequest { source: Branch, target: Branch },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Branch {
+    pub name: String,
+    pub commit: String,
 }
 
 impl Pipeline {
@@ -122,11 +134,34 @@ impl Display for StepId {
 impl TriggerConfiguration {
     pub fn matches(&self, trigger: &Trigger) -> bool {
         match self {
-            Self::Push { branch } => match (branch, &trigger.event) {
-                (Some(expected_branch), TriggerEvent::Push { branch, .. }) => {
-                    expected_branch == branch
+            Self::Push {
+                branch: expected_branch,
+            } => match &trigger.event {
+                TriggerEvent::Push {
+                    branch: Branch { name: branch, .. },
+                    ..
+                } => match expected_branch {
+                    None => true,
+                    Some(expected_branch) => expected_branch == branch,
+                },
+                _ => false,
+            },
+            Self::PullRequest {
+                target: expected_target,
+                source: expected_source,
+            } => match &trigger.event {
+                TriggerEvent::PullRequest {
+                    source: Branch { name: source, .. },
+                    target: Branch { name: target, .. },
+                } => {
+                    expected_target
+                        .as_ref()
+                        .map_or(true, |expected_target| expected_target == target)
+                        && expected_source
+                            .as_ref()
+                            .map_or(true, |expected_source| expected_source == source)
                 }
-                (None, TriggerEvent::Push { .. }) => true,
+                _ => false,
             },
         }
     }
