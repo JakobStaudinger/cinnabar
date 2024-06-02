@@ -96,7 +96,7 @@ impl PushEventData {
         self.r#ref
             .strip_prefix("refs/heads/")
             .zip(self.head_commit)
-            .map_or(None, move |(branch, commit)| {
+            .map(move |(branch, commit)| {
                 let branch = branch.to_string();
                 let commit = commit.id;
                 let event = TriggerEvent::Push {
@@ -106,12 +106,12 @@ impl PushEventData {
                     },
                 };
 
-                Some(Trigger {
+                Trigger {
                     repository_owner,
                     repository_name,
                     installation_id,
                     event,
-                })
+                }
             })
     }
 }
