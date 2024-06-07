@@ -4,7 +4,7 @@ mod webhook;
 
 use axum::{routing::post, Router};
 use bollard::Docker;
-use domain::{Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
+use domain::{Branch, Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
 use secrecy::SecretString;
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
 use std::{io, sync::Arc};
@@ -110,7 +110,13 @@ async fn shutdown_signal() {
 fn handle_trigger(trigger: Trigger, config: AppConfig) {
     tokio::spawn(async move {
         let commit = match &trigger.event {
-            TriggerEvent::Push { commit, .. } => commit,
+            TriggerEvent::Push {
+                branch: Branch { commit, .. },
+            } => commit,
+            TriggerEvent::PullRequest {
+                source: Branch { commit, .. },
+                ..
+            } => commit,
         };
 
         let github = GitHub::build(config.github_app_id, &config.github_private_key).unwrap();

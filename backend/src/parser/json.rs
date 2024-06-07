@@ -16,7 +16,7 @@ impl PipelineParser for JsonParser {
             .await
             .map_err(|err| ParserError::File(format!("Could not read file contents: {err:?}")))?;
 
-        Ok(serde_json::from_str(&content)
-            .map_err(|err| ParserError::Generic(format!("Could not parse json file: {err}")))?)
+        serde_json::from_str(&content)
+            .map_err(|err| ParserError::Generic(format!("Could not parse json file: {err}")))
     }
 }

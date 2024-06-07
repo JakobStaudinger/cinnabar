@@ -37,8 +37,8 @@ impl PipelineParser for JsonnetParser {
             .manifest_json(&value, false)
             .map_err(|err| ParserError::Generic(format!("Could not manifest json: {err:?}")))?;
 
-        Ok(serde_json::from_str(&value)
-            .map_err(|err| ParserError::Generic(format!("Could not parse json: {err}")))?)
+        serde_json::from_str(&value)
+            .map_err(|err| ParserError::Generic(format!("Could not parse json: {err}")))
     }
 }
 
