@@ -123,8 +123,8 @@ enum PullRequestEvent {
     Opened(PullRequestEventData),
     #[serde(rename = "reopened")]
     Reopened(PullRequestEventData),
-    #[serde(rename = "synchronized")]
-    Synchronized(PullRequestEventData),
+    #[serde(rename = "synchronize")]
+    Synchronize(PullRequestEventData),
     #[serde(other)]
     Other,
 }
@@ -134,7 +134,7 @@ impl PullRequestEvent {
         let data = match self {
             PullRequestEvent::Opened(data)
             | PullRequestEvent::Reopened(data)
-            | PullRequestEvent::Synchronized(data) => Some(data),
+            | PullRequestEvent::Synchronize(data) => Some(data),
             PullRequestEvent::Other => None,
         }?;
 
