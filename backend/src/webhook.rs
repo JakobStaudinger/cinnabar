@@ -240,7 +240,7 @@ impl RefVisitor {
         } else if let Some(tag) = v.strip_prefix("refs/tags/") {
             Ok(Ref::Tag(tag.to_owned()))
         } else {
-            Err(serde::de::Error::custom("invalid ref format"))
+            Ok(Ref::Head(v.to_owned()))
         }
     }
 }
