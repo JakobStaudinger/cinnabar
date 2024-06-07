@@ -5,6 +5,10 @@
       event: 'push',
       branch: 'main',
     },
+    {
+      event: 'pull_request',
+      target: 'main',
+    },
   ],
   steps: [
     {
