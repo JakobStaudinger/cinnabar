@@ -437,7 +437,7 @@ mod tests {
                     "repository": {
                         "name": "Repo",
                         "owner": {
-                            "name": "Owner"
+                            "login": "Owner"
                         }
                     },
                     "installation": {
@@ -485,7 +485,7 @@ mod tests {
                     "repository": {
                         "name": "Repo",
                         "owner": {
-                            "name": "Owner"
+                            "login": "Owner"
                         }
                     },
                     "installation": {
@@ -537,7 +537,7 @@ mod tests {
                     "repository": {
                         "name": "Repo",
                         "owner": {
-                            "name": "Owner"
+                            "login": "Owner"
                         }
                     },
                     "installation": {
@@ -568,14 +568,14 @@ mod tests {
         }
 
         #[test]
-        fn parse_trigger_should_parse_pull_request_synchronized_event() {
+        fn parse_trigger_should_parse_pull_request_synchronize_event() {
             let mut headers = HeaderMap::new();
             headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
 
             let result = parse_trigger(
                 headers,
                 r#"{
-                    "action": "synchronized",
+                    "action": "synchronize",
                     "pull_request": {
                         "head": {
                             "sha": "123",
@@ -589,7 +589,7 @@ mod tests {
                     "repository": {
                         "name": "Repo",
                         "owner": {
-                            "name": "Owner"
+                            "login": "Owner"
                         }
                     },
                     "installation": {
