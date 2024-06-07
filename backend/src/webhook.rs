@@ -72,7 +72,7 @@ struct Repository {
 
 #[derive(Deserialize)]
 struct RepositoryOwner {
-    name: String,
+    login: String,
 }
 
 #[derive(Deserialize)]
@@ -90,7 +90,7 @@ struct PushEventData {
 
 impl PushEventData {
     fn extract_trigger(self) -> Option<Trigger> {
-        let repository_owner = self.repository.owner.name;
+        let repository_owner = self.repository.owner.login;
         let repository_name = self.repository.name;
         let installation_id = self.installation.id;
         self.r#ref
@@ -166,7 +166,7 @@ impl PullRequestEventData {
             event,
             installation_id: self.installation.id,
             repository_name: self.repository.name,
-            repository_owner: self.repository.owner.name,
+            repository_owner: self.repository.owner.login,
         })
     }
 }
