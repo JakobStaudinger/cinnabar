@@ -5,6 +5,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
+use checksum::VerifiedBody;
 use domain::{Branch, Trigger, TriggerEvent};
 use serde::{de::Visitor, Deserialize};
 
@@ -15,9 +16,10 @@ pub async fn handle_webhook(
     headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse {
-    if let Err(message) = checksum::verify(&headers, &body, &config.github_webhook_secret) {
-        return (StatusCode::BAD_REQUEST, message);
-    }
+    let body = match checksum::verify(&headers, body, &config.github_webhook_secret) {
+        Ok(body) => body,
+        Err(message) => return (StatusCode::BAD_REQUEST, message),
+    };
 
     let trigger = parse_trigger(headers, body);
 
@@ -31,7 +33,7 @@ pub async fn handle_webhook(
     }
 }
 
-fn parse_trigger(headers: HeaderMap, body: String) -> Result<Option<Trigger>, &'static str> {
+fn parse_trigger(headers: HeaderMap, body: VerifiedBody) -> Result<Option<Trigger>, &'static str> {
     let event = headers.get("x-github-event");
     let event = event.ok_or("Missing header x-github-event")?;
 
@@ -278,7 +280,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert("X-GitHub-Event", HeaderValue::from_static("pull"));
 
-        let result = parse_trigger(headers, "".to_string());
+        let result = parse_trigger(headers, VerifiedBody::from_static(""));
 
         assert_eq!(result, Ok(None));
     }
@@ -287,7 +289,7 @@ mod tests {
     fn parse_trigger_should_return_error_for_missing_event_header() {
         let headers = HeaderMap::new();
 
-        let result = parse_trigger(headers, "".to_string());
+        let result = parse_trigger(headers, VerifiedBody::from_static(""));
 
         assert_eq!(result, Err("Missing header x-github-event"));
     }
@@ -297,8 +299,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert("X-GitHub-Event", HeaderValue::from_static("push"));
 
-        let result = parse_trigger(
-            headers,
+        let body = VerifiedBody::from_static(
             r#"{
                     "ref": "refs/heads/branch",
                     "head_commit": {
@@ -313,9 +314,10 @@ mod tests {
                     "installation": {
                         "id": 789
                     }
-                }"#
-            .to_string(),
+                }"#,
         );
+
+        let result = parse_trigger(headers, body);
 
         assert_eq!(
             result,
@@ -338,8 +340,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
 
-        let result = parse_trigger(
-            headers,
+        let body = VerifiedBody::from_static(
             r#"{
                     "action": "opened",
                     "pull_request": {
@@ -361,9 +362,10 @@ mod tests {
                     "installation": {
                         "id": 789
                     }
-                }"#
-            .to_string(),
+                }"#,
         );
+
+        let result = parse_trigger(headers, body);
 
         assert_eq!(
             result,
@@ -390,8 +392,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
 
-        let result = parse_trigger(
-            headers,
+        let body = VerifiedBody::from_static(
             r#"{
                     "action": "reopened",
                     "pull_request": {
@@ -413,9 +414,10 @@ mod tests {
                     "installation": {
                         "id": 789
                     }
-                }"#
-            .to_string(),
+                }"#,
         );
+
+        let result = parse_trigger(headers, body);
 
         assert_eq!(
             result,
@@ -442,8 +444,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
 
-        let result = parse_trigger(
-            headers,
+        let body = VerifiedBody::from_static(
             r#"{
                     "action": "synchronize",
                     "pull_request": {
@@ -465,9 +466,10 @@ mod tests {
                     "installation": {
                         "id": 789
                     }
-                }"#
-            .to_string(),
+                }"#,
         );
+
+        let result = parse_trigger(headers, body);
 
         assert_eq!(
             result,

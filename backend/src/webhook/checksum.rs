@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use axum::http::HeaderMap;
 use hmac::{Hmac, Mac};
 use secrecy::{ExposeSecret, SecretString};
@@ -5,9 +7,9 @@ use sha2::Sha256;
 
 pub fn verify(
     headers: &HeaderMap,
-    body: &String,
+    body: String,
     secret: &SecretString,
-) -> Result<(), &'static str> {
+) -> Result<VerifiedBody, &'static str> {
     let expected_signature = headers
         .get("x-hub-signature-256")
         .ok_or("Missing header x-hub-signature-256")?
@@ -27,7 +29,29 @@ pub fn verify(
     mac.update(body.as_bytes());
 
     mac.verify_slice(expected_signature.as_slice())
-        .map_err(|_| "Failed to verify sha256 checksum")
+        .map_err(|_| "Failed to verify sha256 checksum")?;
+
+    Ok(VerifiedBody { body })
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub struct VerifiedBody {
+    body: String,
+}
+
+impl Display for VerifiedBody {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.body.fmt(f)
+    }
+}
+
+#[cfg(test)]
+impl VerifiedBody {
+    pub fn from_static(str: &'static str) -> VerifiedBody {
+        VerifiedBody {
+            body: str.to_owned(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -49,7 +73,10 @@ mod tests {
             ),
         );
 
-        assert_eq!(verify(&headers, &body, &secret), Ok(()));
+        assert_eq!(
+            verify(&headers, body.clone(), &secret),
+            Ok(VerifiedBody { body })
+        );
     }
 
     #[test]
@@ -59,7 +86,7 @@ mod tests {
         let headers = HeaderMap::new();
 
         assert_eq!(
-            verify(&headers, &body, &secret),
+            verify(&headers, body, &secret),
             Err("Missing header x-hub-signature-256")
         );
     }
@@ -76,7 +103,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            verify(&headers, &body, &secret),
+            verify(&headers, body, &secret),
             Err("Failed to verify sha256 checksum")
         );
     }
@@ -93,7 +120,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            verify(&headers, &body, &secret),
+            verify(&headers, body, &secret),
             Err("Malformed sha256 header")
         );
     }
@@ -108,7 +135,7 @@ mod tests {
             HeaderValue::from_static("sha256=wxyz"),
         );
         assert_eq!(
-            verify(&headers, &body, &secret),
+            verify(&headers, body, &secret),
             Err("Failed to parse sha256 signature")
         );
     }
@@ -124,7 +151,7 @@ mod tests {
         );
 
         assert_eq!(
-            verify(&headers, &body, &secret),
+            verify(&headers, body, &secret),
             Err("Failed to parse x-hub-signature-256 header")
         );
     }
