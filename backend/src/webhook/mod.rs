@@ -268,41 +268,38 @@ impl RefVisitor {
 
 #[cfg(test)]
 mod tests {
-    pub use super::*;
+    use axum::http::HeaderValue;
+    use domain::Branch;
 
-    mod parse_trigger_tests {
-        use axum::http::HeaderValue;
-        use domain::Branch;
+    use super::*;
 
-        use super::*;
+    #[test]
+    fn parse_trigger_should_return_none_for_unknown_event() {
+        let mut headers = HeaderMap::new();
+        headers.insert("X-GitHub-Event", HeaderValue::from_static("pull"));
 
-        #[test]
-        fn parse_trigger_should_return_none_for_unknown_event() {
-            let mut headers = HeaderMap::new();
-            headers.insert("X-GitHub-Event", HeaderValue::from_static("pull"));
+        let result = parse_trigger(headers, "".to_string());
 
-            let result = parse_trigger(headers, "".to_string());
+        assert_eq!(result, Ok(None));
+    }
 
-            assert_eq!(result, Ok(None));
-        }
+    #[test]
+    fn parse_trigger_should_return_error_for_missing_event_header() {
+        let headers = HeaderMap::new();
 
-        #[test]
-        fn parse_trigger_should_return_error_for_missing_event_header() {
-            let headers = HeaderMap::new();
+        let result = parse_trigger(headers, "".to_string());
 
-            let result = parse_trigger(headers, "".to_string());
+        assert_eq!(result, Err("Missing header x-github-event"));
+    }
 
-            assert_eq!(result, Err("Missing header x-github-event"));
-        }
+    #[test]
+    fn parse_trigger_should_parse_push_event() {
+        let mut headers = HeaderMap::new();
+        headers.insert("X-GitHub-Event", HeaderValue::from_static("push"));
 
-        #[test]
-        fn parse_trigger_should_parse_push_event() {
-            let mut headers = HeaderMap::new();
-            headers.insert("X-GitHub-Event", HeaderValue::from_static("push"));
-
-            let result = parse_trigger(
-                headers,
-                r#"{
+        let result = parse_trigger(
+            headers,
+            r#"{
                     "ref": "refs/heads/branch",
                     "head_commit": {
                         "id": "123"
@@ -317,33 +314,33 @@ mod tests {
                         "id": 789
                     }
                 }"#
-                .to_string(),
-            );
+            .to_string(),
+        );
 
-            assert_eq!(
-                result,
-                Ok(Some(Trigger {
-                    event: TriggerEvent::Push {
-                        branch: Branch {
-                            name: "branch".to_string(),
-                            commit: "123".to_string()
-                        }
-                    },
-                    installation_id: 789,
-                    repository_name: "Repo".to_string(),
-                    repository_owner: "Owner".to_string()
-                }))
-            );
-        }
+        assert_eq!(
+            result,
+            Ok(Some(Trigger {
+                event: TriggerEvent::Push {
+                    branch: Branch {
+                        name: "branch".to_string(),
+                        commit: "123".to_string()
+                    }
+                },
+                installation_id: 789,
+                repository_name: "Repo".to_string(),
+                repository_owner: "Owner".to_string()
+            }))
+        );
+    }
 
-        #[test]
-        fn parse_trigger_should_parse_pull_request_opened_event() {
-            let mut headers = HeaderMap::new();
-            headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
+    #[test]
+    fn parse_trigger_should_parse_pull_request_opened_event() {
+        let mut headers = HeaderMap::new();
+        headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
 
-            let result = parse_trigger(
-                headers,
-                r#"{
+        let result = parse_trigger(
+            headers,
+            r#"{
                     "action": "opened",
                     "pull_request": {
                         "head": {
@@ -365,37 +362,37 @@ mod tests {
                         "id": 789
                     }
                 }"#
-                .to_string(),
-            );
+            .to_string(),
+        );
 
-            assert_eq!(
-                result,
-                Ok(Some(Trigger {
-                    event: TriggerEvent::PullRequest {
-                        source: Branch {
-                            name: "head-branch".to_string(),
-                            commit: "123".to_string()
-                        },
-                        target: Branch {
-                            name: "base-branch".to_string(),
-                            commit: "456".to_string()
-                        }
+        assert_eq!(
+            result,
+            Ok(Some(Trigger {
+                event: TriggerEvent::PullRequest {
+                    source: Branch {
+                        name: "head-branch".to_string(),
+                        commit: "123".to_string()
                     },
-                    installation_id: 789,
-                    repository_name: "Repo".to_string(),
-                    repository_owner: "Owner".to_string()
-                }))
-            );
-        }
+                    target: Branch {
+                        name: "base-branch".to_string(),
+                        commit: "456".to_string()
+                    }
+                },
+                installation_id: 789,
+                repository_name: "Repo".to_string(),
+                repository_owner: "Owner".to_string()
+            }))
+        );
+    }
 
-        #[test]
-        fn parse_trigger_should_parse_pull_request_reopened_event() {
-            let mut headers = HeaderMap::new();
-            headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
+    #[test]
+    fn parse_trigger_should_parse_pull_request_reopened_event() {
+        let mut headers = HeaderMap::new();
+        headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
 
-            let result = parse_trigger(
-                headers,
-                r#"{
+        let result = parse_trigger(
+            headers,
+            r#"{
                     "action": "reopened",
                     "pull_request": {
                         "head": {
@@ -417,37 +414,37 @@ mod tests {
                         "id": 789
                     }
                 }"#
-                .to_string(),
-            );
+            .to_string(),
+        );
 
-            assert_eq!(
-                result,
-                Ok(Some(Trigger {
-                    event: TriggerEvent::PullRequest {
-                        source: Branch {
-                            name: "head-branch".to_string(),
-                            commit: "123".to_string()
-                        },
-                        target: Branch {
-                            name: "base-branch".to_string(),
-                            commit: "456".to_string()
-                        }
+        assert_eq!(
+            result,
+            Ok(Some(Trigger {
+                event: TriggerEvent::PullRequest {
+                    source: Branch {
+                        name: "head-branch".to_string(),
+                        commit: "123".to_string()
                     },
-                    installation_id: 789,
-                    repository_name: "Repo".to_string(),
-                    repository_owner: "Owner".to_string()
-                }))
-            );
-        }
+                    target: Branch {
+                        name: "base-branch".to_string(),
+                        commit: "456".to_string()
+                    }
+                },
+                installation_id: 789,
+                repository_name: "Repo".to_string(),
+                repository_owner: "Owner".to_string()
+            }))
+        );
+    }
 
-        #[test]
-        fn parse_trigger_should_parse_pull_request_synchronize_event() {
-            let mut headers = HeaderMap::new();
-            headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
+    #[test]
+    fn parse_trigger_should_parse_pull_request_synchronize_event() {
+        let mut headers = HeaderMap::new();
+        headers.insert("X-GitHub-Event", HeaderValue::from_static("pull_request"));
 
-            let result = parse_trigger(
-                headers,
-                r#"{
+        let result = parse_trigger(
+            headers,
+            r#"{
                     "action": "synchronize",
                     "pull_request": {
                         "head": {
@@ -469,27 +466,26 @@ mod tests {
                         "id": 789
                     }
                 }"#
-                .to_string(),
-            );
+            .to_string(),
+        );
 
-            assert_eq!(
-                result,
-                Ok(Some(Trigger {
-                    event: TriggerEvent::PullRequest {
-                        source: Branch {
-                            name: "head-branch".to_string(),
-                            commit: "123".to_string()
-                        },
-                        target: Branch {
-                            name: "base-branch".to_string(),
-                            commit: "456".to_string()
-                        }
+        assert_eq!(
+            result,
+            Ok(Some(Trigger {
+                event: TriggerEvent::PullRequest {
+                    source: Branch {
+                        name: "head-branch".to_string(),
+                        commit: "123".to_string()
                     },
-                    installation_id: 789,
-                    repository_name: "Repo".to_string(),
-                    repository_owner: "Owner".to_string()
-                }))
-            );
-        }
+                    target: Branch {
+                        name: "base-branch".to_string(),
+                        commit: "456".to_string()
+                    }
+                },
+                installation_id: 789,
+                repository_name: "Repo".to_string(),
+                repository_owner: "Owner".to_string()
+            }))
+        );
     }
 }
