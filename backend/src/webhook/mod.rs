@@ -31,25 +31,47 @@ pub async fn handle_webhook(
     }
 }
 
-#[derive(Deserialize)]
-struct HeadCommit {
-    id: String,
+fn parse_trigger(headers: HeaderMap, body: String) -> Result<Option<Trigger>, &'static str> {
+    let event = headers.get("x-github-event");
+    let event = event.ok_or("Missing header x-github-event")?;
+
+    let supported_events = ["push", "pull_request"];
+
+    match event.to_str() {
+        Ok(event) if supported_events.contains(&event) => {
+            let payload = format!(
+                r#"{{
+                    "event": "{event}",
+                    "payload": {body}
+                }}"#,
+            );
+
+            let event = serde_json::from_str::<WebhookEvent>(&payload)
+                .map_err(|_| "Failed to parse payload")?;
+
+            Ok(event.extract_trigger())
+        }
+        Ok(_) => Ok(None),
+        Err(_) => Err("Failed to parse event"),
+    }
 }
 
 #[derive(Deserialize)]
-struct Repository {
-    name: String,
-    owner: RepositoryOwner,
+#[serde(tag = "event", content = "payload")]
+enum WebhookEvent {
+    #[serde(rename = "push")]
+    Push(PushEventData),
+    #[serde(rename = "pull_request")]
+    PullRequest(PullRequestEvent),
 }
 
-#[derive(Deserialize)]
-struct RepositoryOwner {
-    login: String,
-}
-
-#[derive(Deserialize)]
-struct Installation {
-    id: u64,
+impl WebhookEvent {
+    fn extract_trigger(self) -> Option<Trigger> {
+        match self {
+            WebhookEvent::Push(data) => data.extract_trigger(),
+            WebhookEvent::PullRequest(data) => data.extract_trigger(),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -144,9 +166,36 @@ impl PullRequestEventData {
 }
 
 #[derive(Deserialize)]
+struct HeadCommit {
+    id: String,
+}
+
+#[derive(Deserialize)]
+struct Repository {
+    name: String,
+    owner: RepositoryOwner,
+}
+
+#[derive(Deserialize)]
+struct RepositoryOwner {
+    login: String,
+}
+
+#[derive(Deserialize)]
+struct Installation {
+    id: u64,
+}
+
+#[derive(Deserialize)]
 struct PullRequest {
     head: PullRequestRef,
     base: PullRequestRef,
+}
+
+#[derive(Deserialize)]
+struct PullRequestRef {
+    r#ref: Ref,
+    sha: String,
 }
 
 enum Ref {
@@ -214,55 +263,6 @@ impl RefVisitor {
         } else {
             Ok(Ref::Head(v.to_owned()))
         }
-    }
-}
-
-#[derive(Deserialize)]
-struct PullRequestRef {
-    r#ref: Ref,
-    sha: String,
-}
-
-#[derive(Deserialize)]
-#[serde(tag = "event", content = "payload")]
-enum WebhookEvent {
-    #[serde(rename = "push")]
-    Push(PushEventData),
-    #[serde(rename = "pull_request")]
-    PullRequest(PullRequestEvent),
-}
-
-impl WebhookEvent {
-    fn extract_trigger(self) -> Option<Trigger> {
-        match self {
-            WebhookEvent::Push(data) => data.extract_trigger(),
-            WebhookEvent::PullRequest(data) => data.extract_trigger(),
-        }
-    }
-}
-
-fn parse_trigger(headers: HeaderMap, body: String) -> Result<Option<Trigger>, &'static str> {
-    let event = headers.get("x-github-event");
-    let event = event.ok_or("Missing header x-github-event")?;
-
-    let supported_events = ["push", "pull_request"];
-
-    match event.to_str() {
-        Ok(event) if supported_events.contains(&event) => {
-            let payload = format!(
-                r#"{{
-                    "event": "{event}",
-                    "payload": {body}
-                }}"#,
-            );
-
-            let event = serde_json::from_str::<WebhookEvent>(&payload)
-                .map_err(|_| "Failed to parse payload")?;
-
-            Ok(event.extract_trigger())
-        }
-        Ok(_) => Ok(None),
-        Err(_) => Err("Failed to parse event"),
     }
 }
 
