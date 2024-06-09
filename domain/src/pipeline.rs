@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct PipelineConfiguration {
@@ -12,7 +12,7 @@ pub struct PipelineConfiguration {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct StepConfiguration {
     pub name: String,
-    pub image: String,
+    pub image: DockerImageReference,
     pub commands: Option<Vec<String>>,
     pub cache: Option<Vec<String>>,
 }
@@ -76,6 +76,118 @@ pub enum TriggerEvent {
 pub struct Branch {
     pub name: String,
     pub commit: String,
+}
+
+#[derive(Clone)]
+pub struct DockerImageReference {
+    pub hostname: Option<String>,
+    pub repository: String,
+    pub tag: Option<String>,
+}
+
+impl Serialize for DockerImageReference {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for DockerImageReference {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_string(DockerImageReferenceVisitor)
+    }
+}
+
+struct DockerImageReferenceVisitor;
+
+impl<'de> Visitor<'de> for DockerImageReferenceVisitor {
+    type Value = DockerImageReference;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("A string of format [<hostname>/]<repository>[/<image>]*[:<tag>]")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.parse_string(v)
+    }
+
+    fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.parse_string(v)
+    }
+
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.parse_string(&v)
+    }
+}
+
+impl DockerImageReferenceVisitor {
+    fn parse_string<E>(self, v: &str) -> Result<DockerImageReference, E>
+    where
+        E: serde::de::Error,
+    {
+        let parts = v.split_once("/");
+        match parts {
+            Some((hostname, repository))
+                if hostname.contains(['.', ':']) || hostname == "localhost" =>
+            {
+                let (repository, tag) = repository
+                    .split_once(":")
+                    .map(|(repository, tag)| (repository.to_string(), Some(tag.to_string())))
+                    .unwrap_or_else(|| (v.to_string(), None));
+
+                Ok(DockerImageReference {
+                    hostname: Some(hostname.to_string()),
+                    repository,
+                    tag,
+                })
+            }
+            None | Some(_) => {
+                let (repository, tag) = v
+                    .split_once(":")
+                    .map(|(repository, tag)| (repository.to_string(), Some(tag.to_string())))
+                    .unwrap_or_else(|| (v.to_string(), None));
+
+                Ok(DockerImageReference {
+                    hostname: None,
+                    repository,
+                    tag,
+                })
+            }
+        }
+    }
+}
+
+impl Display for DockerImageReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (&self.hostname, &self.repository, &self.tag) {
+            (Some(hostname), repository, Some(tag)) => {
+                write!(f, "{hostname}/{repository}:{tag}")
+            }
+            (Some(hostname), repository, None) => {
+                write!(f, "{hostname}/{repository}")
+            }
+            (None, repository, Some(tag)) => {
+                write!(f, "{repository}:{tag}")
+            }
+            (None, repository, None) => {
+                write!(f, "{repository}")
+            }
+        }
+    }
 }
 
 impl Pipeline {

@@ -1,3 +1,4 @@
+use bollard::auth::DockerCredentials;
 use bollard::Docker;
 use domain::{Pipeline, PipelineStatus, Step};
 use futures::TryStreamExt;
@@ -69,20 +70,31 @@ impl<'a> PipelineRunner<'a> {
     }
 
     async fn pull_image_for_step(&self, step: &Step) -> Result<(), Error> {
-        let mut iter = step.configuration.image.split(':');
-        let image_name = iter.next().unwrap();
-        let image_tag = iter.next().unwrap_or("latest");
-
         let image = self
             .docker
             .create_image(
                 Some(bollard::image::CreateImageOptions {
-                    from_image: image_name,
-                    tag: image_tag,
+                    from_image: step.configuration.image.to_string().as_str(),
+                    tag: step
+                        .configuration
+                        .image
+                        .tag
+                        .as_ref()
+                        .map(|tag| tag.as_str())
+                        .unwrap_or("latest"),
                     ..Default::default()
                 }),
                 None,
-                None,
+                step.configuration.image.hostname.as_ref().and_then(
+                    |hostname| match &hostname[..] {
+                        "registry.digitalocean.com" => Some(DockerCredentials {
+                            username: Some("redacted".to_string()),
+                            password: Some("redacted".to_string()),
+                            ..Default::default()
+                        }),
+                        _ => None,
+                    },
+                ),
             )
             .try_collect::<Vec<_>>()
             .await?;

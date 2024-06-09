@@ -13,9 +13,8 @@
   steps: [
     {
       name: 'clone',
-      image: 'alpine',
+      image: 'registry.digitalocean.com/rust-ci/clone',
       commands: [
-        'apk add git',
         'git init',
         'git remote add origin https://github.com/JakobStaudinger/rust-ci.git',
         'git fetch origin +refs/heads/main',
