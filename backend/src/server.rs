@@ -4,10 +4,7 @@ use axum::{extract::State, http::HeaderMap, routing::post, Router};
 use bollard::Docker;
 use domain::{Branch, Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
-use tokio::{
-    signal::{self, unix::SignalKind},
-    task::JoinSet,
-};
+use tokio::signal::{self, unix::SignalKind};
 
 use crate::{
     config::AppConfig,
@@ -112,8 +109,6 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
             .into_iter()
             .filter(|file| file.path.starts_with(".ci/pipelines/"));
 
-        let mut join_set = JoinSet::new();
-
         for file in pipeline_files {
             let installation = installation.clone();
             let commit = commit.clone();
@@ -121,51 +116,47 @@ fn handle_trigger(trigger: Trigger, config: AppConfig) {
 
             let configuration = parse_pipeline(&file, &installation).await.unwrap();
 
-            join_set.spawn(async move {
-                if configuration
-                    .trigger
-                    .iter()
-                    .any(|trigger_configuration| trigger_configuration.matches(&trigger))
-                {
-                    let pipeline_id = rand::random();
-                    let mut pipeline = Pipeline::new(PipelineId::new(pipeline_id), configuration);
+            if configuration
+                .trigger
+                .iter()
+                .any(|trigger_configuration| trigger_configuration.matches(&trigger))
+            {
+                let pipeline_id = rand::random();
+                let mut pipeline = Pipeline::new(PipelineId::new(pipeline_id), configuration);
 
-                    installation
-                        .update_status_check(
-                            &commit,
-                            &pipeline.configuration.name,
-                            pipeline.id.0,
-                            CheckStatus::Running,
-                        )
-                        .await
-                        .unwrap();
+                installation
+                    .update_status_check(
+                        &commit,
+                        &pipeline.configuration.name,
+                        pipeline.id.0,
+                        CheckStatus::Running,
+                    )
+                    .await
+                    .unwrap();
 
-                    let docker = Docker::connect_with_socket_defaults().unwrap();
-                    let mut runner = runner::PipelineRunner {
-                        docker: &docker,
-                        access_token: installation.get_access_token(),
-                        pipeline: &mut pipeline,
-                    };
-                    runner.run().await.unwrap();
+                let docker = Docker::connect_with_socket_defaults().unwrap();
+                let mut runner = runner::PipelineRunner {
+                    docker: &docker,
+                    access_token: installation.get_access_token(),
+                    pipeline: &mut pipeline,
+                };
+                runner.run().await.unwrap();
 
-                    installation
-                        .update_status_check(
-                            &commit,
-                            &pipeline.configuration.name,
-                            pipeline.id.0,
-                            match pipeline.status {
-                                PipelineStatus::Passed => CheckStatus::Passed,
-                                PipelineStatus::Failed => CheckStatus::Failed,
-                                PipelineStatus::Pending => CheckStatus::Pending,
-                                PipelineStatus::Running => CheckStatus::Running,
-                            },
-                        )
-                        .await
-                        .unwrap();
-                }
-            });
+                installation
+                    .update_status_check(
+                        &commit,
+                        &pipeline.configuration.name,
+                        pipeline.id.0,
+                        match pipeline.status {
+                            PipelineStatus::Passed => CheckStatus::Passed,
+                            PipelineStatus::Failed => CheckStatus::Failed,
+                            PipelineStatus::Pending => CheckStatus::Pending,
+                            PipelineStatus::Running => CheckStatus::Running,
+                        },
+                    )
+                    .await
+                    .unwrap();
+            }
         }
-
-        while join_set.join_next().await.is_some() {}
     });
 }
