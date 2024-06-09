@@ -1,30 +1,23 @@
-mod parser;
-mod runner;
-mod webhook;
+use std::{io, sync::Arc};
 
-use axum::{routing::post, Router};
+use axum::{extract::State, http::HeaderMap, routing::post, Router};
 use bollard::Docker;
 use domain::{Branch, Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
-use secrecy::SecretString;
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
-use std::{io, sync::Arc};
 use tokio::{
     signal::{self, unix::SignalKind},
     task::JoinSet,
 };
 
-use crate::{parser::parse_pipeline, webhook::handle_webhook};
+use crate::{
+    config::AppConfig,
+    parser::parse_pipeline,
+    runner,
+    webhook::{handle_webhook, Callbacks},
+};
 
-#[derive(Clone)]
-struct AppConfig {
-    github_webhook_secret: SecretString,
-    github_app_id: u64,
-    github_private_key: SecretString,
-}
-
-#[derive(Clone)]
-struct Callbacks {
-    trigger: Arc<dyn Send + Sync + Fn(Trigger, AppConfig)>,
+pub struct Server {
+    app: Router,
 }
 
 #[derive(Clone)]
@@ -33,54 +26,38 @@ struct RequestState {
     callbacks: Callbacks,
 }
 
-pub async fn main() -> Result<(), String> {
-    let config = build_config()?;
+impl Server {
+    pub fn new(config: AppConfig) -> Self {
+        let app = Router::new()
+            .route(
+                "/webhook",
+                post(
+                    |State(RequestState { config, callbacks }): State<RequestState>,
+                     headers: HeaderMap,
+                     body: String| {
+                        handle_webhook(config, callbacks, headers, body)
+                    },
+                ),
+            )
+            .with_state(RequestState {
+                config,
+                callbacks: Callbacks {
+                    trigger: Arc::new(handle_trigger),
+                },
+            });
 
-    start_http_server(config)
-        .await
-        .map_err(|e| format!("Failed to start HTTP server {e}"))?;
+        Self { app }
+    }
 
-    Ok(())
-}
+    pub async fn start(self) -> Result<(), io::Error> {
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:42069").await?;
 
-async fn start_http_server(config: AppConfig) -> Result<(), io::Error> {
-    let app = Router::new()
-        .route("/webhook", post(handle_webhook))
-        .with_state(RequestState {
-            config,
-            callbacks: Callbacks {
-                trigger: Arc::new(handle_trigger),
-            },
-        });
+        println!("listening on {}", listener.local_addr().unwrap());
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:42069").await?;
-
-    println!("listening on {}", listener.local_addr().unwrap());
-
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-}
-
-fn build_config() -> Result<AppConfig, String> {
-    let github_webhook_secret = SecretString::new(
-        std::env::var("GITHUB_WEBHOOK_SECRET")
-            .map_err(|_| "Please provide the GITHUB_WEBHOOK_SECRET environment variable")?,
-    );
-    let github_app_id = std::env::var("GITHUB_APP_ID")
-        .map_err(|_| "Please provide the GITHUB_APP_ID environment variable")?
-        .parse()
-        .map_err(|_| "GITHUB_APP_ID needs to be an integer")?;
-    let github_private_key = SecretString::new(
-        std::env::var("GITHUB_PRIVATE_KEY")
-            .map_err(|_| "Please provide the GITHUB_PRIVATE_KEY environment variable")?,
-    );
-
-    Ok(AppConfig {
-        github_webhook_secret,
-        github_app_id,
-        github_private_key,
-    })
+        axum::serve(listener, self.app)
+            .with_graceful_shutdown(shutdown_signal())
+            .await
+    }
 }
 
 async fn shutdown_signal() {

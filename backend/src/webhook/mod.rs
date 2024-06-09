@@ -1,7 +1,8 @@
 mod checksum;
 
+use std::sync::Arc;
+
 use axum::{
-    extract::State,
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
@@ -9,10 +10,16 @@ use checksum::VerifiedBody;
 use domain::{Branch, Trigger, TriggerEvent};
 use serde::{de::Visitor, Deserialize};
 
-use crate::RequestState;
+use crate::config::AppConfig;
+
+#[derive(Clone)]
+pub struct Callbacks {
+    pub trigger: Arc<dyn Send + Sync + Fn(Trigger, AppConfig)>,
+}
 
 pub async fn handle_webhook(
-    State(RequestState { config, callbacks }): State<RequestState>,
+    config: AppConfig,
+    callbacks: Callbacks,
     headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse {
