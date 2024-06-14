@@ -75,13 +75,7 @@ impl<'a> PipelineRunner<'a> {
             .create_image(
                 Some(bollard::image::CreateImageOptions {
                     from_image: step.configuration.image.to_string().as_str(),
-                    tag: step
-                        .configuration
-                        .image
-                        .tag
-                        .as_ref()
-                        .map(|tag| tag.as_str())
-                        .unwrap_or("latest"),
+                    tag: step.configuration.image.tag.as_deref().unwrap_or("latest"),
                     ..Default::default()
                 }),
                 None,
