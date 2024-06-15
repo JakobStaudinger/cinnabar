@@ -142,7 +142,6 @@ impl DockerImageReferenceVisitor {
         let parts = v.split_once('/');
         let (hostname, repository_and_tag) = parts
             .and_then(|(hostname, repository)| {
-                println!("{hostname} | {repository}");
                 if hostname.contains(['.', ':']) || hostname == "localhost" {
                     Some((Some(hostname.to_string()), repository))
                 } else {

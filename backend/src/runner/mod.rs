@@ -79,8 +79,8 @@ impl<'a> PipelineRunner<'a> {
                     ..Default::default()
                 }),
                 None,
-                step.configuration.image.hostname.as_ref().and_then(
-                    |hostname| match &hostname[..] {
+                step.configuration.image.hostname.as_deref().and_then(
+                    |hostname| match hostname {
                         "registry.digitalocean.com" => Some(DockerCredentials {
                             username: Some("redacted".to_string()),
                             password: Some("redacted".to_string()),
