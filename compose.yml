@@ -14,6 +14,16 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
 
+  vault:
+    build:
+      context: vault
+    command: server
+    restart: unless-stopped
+    volumes:
+      - vault-data:/vault/file:rw
+    cap_add:
+      - IPC_LOCK
+
   nginx:
     depends_on:
       - backend
@@ -22,14 +32,16 @@ services:
     ports:
       - 80:80
       - 443:443
-    restart: unless-stopped
+    restart: on-failure:1
     environment:
       CERTBOT_EMAIL: $CERTBOT_EMAIL
       CERTBOT_DOMAINS: >
         app.cinnabar-ci.dev
+        vault.cinnabar-ci.dev
     volumes:
       - certificates:/etc/letsencrypt:rw
       - /etc/letsencrypt/renewal-hooks
     
 volumes:
+  vault-data:
   certificates:
