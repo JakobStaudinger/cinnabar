@@ -3,12 +3,12 @@ server {
     listen                  [::]:443 ssl reuseport;
     http2 on;
 
-    server_name             ci.jakobs-lab.at;
+    server_name             app.cinnabar-ci.dev;
 
     # SSL
-    ssl_certificate         /etc/letsencrypt/live/ci.jakobs-lab.at/fullchain.pem;
-    ssl_certificate_key     /etc/letsencrypt/live/ci.jakobs-lab.at/privkey.pem;
-    ssl_trusted_certificate /etc/letsencrypt/live/ci.jakobs-lab.at/chain.pem;
+    ssl_certificate         /etc/letsencrypt/live/app.cinnabar-ci.dev/fullchain.pem;
+    ssl_certificate_key     /etc/letsencrypt/live/app.cinnabar-ci.dev/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/app.cinnabar-ci.dev/chain.pem;
 
     # security
     include                 nginxconfig.io/security.conf;
@@ -27,10 +27,10 @@ server {
 server {
     listen      80 reuseport;
     listen      [::]:80 reuseport;
-    server_name ci.jakobs-lab.at;
+    server_name app.cinnabar-ci.dev;
     include     nginxconfig.io/letsencrypt.conf;
 
     location / {
-        return 301 https://ci.jakobs-lab.at$request_uri;
+        return 301 https://app.cinnabar-ci.dev$request_uri;
     }
 }
