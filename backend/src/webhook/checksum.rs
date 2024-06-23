@@ -63,8 +63,8 @@ mod tests {
 
     #[test]
     fn verify_should_return_ok() {
-        let secret = SecretString::new("It's a Secret to Everybody".to_string());
-        let body = "Hello, World!".to_string();
+        let secret = SecretString::new("It's a Secret to Everybody".to_owned());
+        let body = "Hello, World!".to_owned();
         let mut headers = HeaderMap::new();
         headers.insert(
             "X-Hub-Signature-256",
@@ -81,8 +81,8 @@ mod tests {
 
     #[test]
     fn verify_should_return_err_if_header_is_missing() {
-        let secret = SecretString::new("It's a Secret to Everybody".to_string());
-        let body = "Hello, World!".to_string();
+        let secret = SecretString::new("It's a Secret to Everybody".to_owned());
+        let body = "Hello, World!".to_owned();
         let headers = HeaderMap::new();
 
         assert_eq!(
@@ -93,8 +93,8 @@ mod tests {
 
     #[test]
     fn verify_should_return_err_if_checksum_differs() {
-        let secret = SecretString::new("It's a Secret to Everybody".to_string());
-        let body = "Hello, World!".to_string();
+        let secret = SecretString::new("It's a Secret to Everybody".to_owned());
+        let body = "Hello, World!".to_owned();
         let mut headers = HeaderMap::new();
         headers.insert(
             "X-Hub-Signature-256",
@@ -110,8 +110,8 @@ mod tests {
 
     #[test]
     fn verify_should_return_err_if_header_is_malformed() {
-        let secret = SecretString::new("It's a Secret to Everybody".to_string());
-        let body = "Hello, World!".to_string();
+        let secret = SecretString::new("It's a Secret to Everybody".to_owned());
+        let body = "Hello, World!".to_owned();
         let mut headers = HeaderMap::new();
         headers.insert(
             "X-Hub-Signature-256",
@@ -127,8 +127,8 @@ mod tests {
 
     #[test]
     fn verify_should_return_err_if_sha_is_no_hex_string() {
-        let secret = SecretString::new("It's a Secret to Everybody".to_string());
-        let body = "Hello, World!".to_string();
+        let secret = SecretString::new("It's a Secret to Everybody".to_owned());
+        let body = "Hello, World!".to_owned();
         let mut headers = HeaderMap::new();
         headers.insert(
             "X-Hub-Signature-256",
@@ -142,8 +142,8 @@ mod tests {
 
     #[test]
     fn verify_should_return_err_if_header_is_wrongly_encoded() {
-        let secret = SecretString::new("It's a Secret to Everybody".to_string());
-        let body = "Hello, World!".to_string();
+        let secret = SecretString::new("It's a Secret to Everybody".to_owned());
+        let body = "Hello, World!".to_owned();
         let mut headers = HeaderMap::new();
         headers.insert(
             "X-Hub-Signature-256",

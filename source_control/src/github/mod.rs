@@ -102,10 +102,10 @@ impl SourceControlInstallation for GitHubInstallation {
     async fn read_folder(&self, path: &str, r#ref: &str) -> Result<Folder, Self::Error> {
         let path = Path::new(path);
         let r#ref = match path.parent() {
-            None => r#ref.to_string(),
+            None => r#ref.to_owned(),
             Some(parent) => {
                 let parent = parent.to_str().ok_or(GitHubError::Generic(
-                    "Could not convert path to str".to_string(),
+                    "Could not convert path to str".to_owned(),
                 ))?;
 
                 let content = self
@@ -122,7 +122,7 @@ impl SourceControlInstallation for GitHubInstallation {
                     .into_iter()
                     .find(|item| Path::new(item.path.as_str()) == path)
                     .ok_or(GitHubError::Generic(
-                        "Could not find file in tree".to_string(),
+                        "Could not find file in tree".to_owned(),
                     ))?
                     .sha
             }

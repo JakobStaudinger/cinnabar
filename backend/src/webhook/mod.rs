@@ -100,7 +100,7 @@ impl PushEventData {
             .strip_prefix("refs/heads/")
             .zip(self.head_commit)
             .map(move |(branch, commit)| {
-                let branch = branch.to_string();
+                let branch = branch.to_owned();
                 let commit = commit.id;
                 let event = TriggerEvent::Push {
                     branch: Branch {
@@ -331,13 +331,13 @@ mod tests {
             Ok(Some(Trigger {
                 event: TriggerEvent::Push {
                     branch: Branch {
-                        name: "branch".to_string(),
-                        commit: "123".to_string()
+                        name: "branch".to_owned(),
+                        commit: "123".to_owned()
                     }
                 },
                 installation_id: 789,
-                repository_name: "Repo".to_string(),
-                repository_owner: "Owner".to_string()
+                repository_name: "Repo".to_owned(),
+                repository_owner: "Owner".to_owned()
             }))
         );
     }
@@ -379,17 +379,17 @@ mod tests {
             Ok(Some(Trigger {
                 event: TriggerEvent::PullRequest {
                     source: Branch {
-                        name: "head-branch".to_string(),
-                        commit: "123".to_string()
+                        name: "head-branch".to_owned(),
+                        commit: "123".to_owned()
                     },
                     target: Branch {
-                        name: "base-branch".to_string(),
-                        commit: "456".to_string()
+                        name: "base-branch".to_owned(),
+                        commit: "456".to_owned()
                     }
                 },
                 installation_id: 789,
-                repository_name: "Repo".to_string(),
-                repository_owner: "Owner".to_string()
+                repository_name: "Repo".to_owned(),
+                repository_owner: "Owner".to_owned()
             }))
         );
     }
@@ -431,17 +431,17 @@ mod tests {
             Ok(Some(Trigger {
                 event: TriggerEvent::PullRequest {
                     source: Branch {
-                        name: "head-branch".to_string(),
-                        commit: "123".to_string()
+                        name: "head-branch".to_owned(),
+                        commit: "123".to_owned()
                     },
                     target: Branch {
-                        name: "base-branch".to_string(),
-                        commit: "456".to_string()
+                        name: "base-branch".to_owned(),
+                        commit: "456".to_owned()
                     }
                 },
                 installation_id: 789,
-                repository_name: "Repo".to_string(),
-                repository_owner: "Owner".to_string()
+                repository_name: "Repo".to_owned(),
+                repository_owner: "Owner".to_owned()
             }))
         );
     }
@@ -483,17 +483,17 @@ mod tests {
             Ok(Some(Trigger {
                 event: TriggerEvent::PullRequest {
                     source: Branch {
-                        name: "head-branch".to_string(),
-                        commit: "123".to_string()
+                        name: "head-branch".to_owned(),
+                        commit: "123".to_owned()
                     },
                     target: Branch {
-                        name: "base-branch".to_string(),
-                        commit: "456".to_string()
+                        name: "base-branch".to_owned(),
+                        commit: "456".to_owned()
                     }
                 },
                 installation_id: 789,
-                repository_name: "Repo".to_string(),
-                repository_owner: "Owner".to_string()
+                repository_name: "Repo".to_owned(),
+                repository_owner: "Owner".to_owned()
             }))
         );
     }
