@@ -1,4 +1,3 @@
-use bollard::auth::DockerCredentials;
 use bollard::Docker;
 use domain::{Pipeline, PipelineStatus, Step};
 use futures::TryStreamExt;
@@ -70,28 +69,23 @@ impl<'a> PipelineRunner<'a> {
     }
 
     async fn pull_image_for_step(&self, step: &Step) -> Result<(), Error> {
-        let image = self
-            .docker
-            .create_image(
-                Some(bollard::image::CreateImageOptions {
-                    from_image: step.configuration.image.to_string().as_str(),
-                    tag: step.configuration.image.tag.as_deref().unwrap_or("latest"),
-                    ..Default::default()
-                }),
-                None,
-                step.configuration.image.hostname.as_deref().and_then(
-                    |hostname| match hostname {
-                        "registry.digitalocean.com" => Some(DockerCredentials {
-                            username: Some("redacted".to_string()),
-                            password: Some("redacted".to_string()),
-                            ..Default::default()
-                        }),
-                        _ => None,
-                    },
-                ),
-            )
-            .try_collect::<Vec<_>>()
-            .await?;
+        let image =
+            self.docker
+                .create_image(
+                    Some(bollard::image::CreateImageOptions {
+                        from_image: step.configuration.image.to_string().as_str(),
+                        tag: step.configuration.image.tag.as_deref().unwrap_or("latest"),
+                        ..Default::default()
+                    }),
+                    None,
+                    step.configuration.image.hostname.as_deref().and_then(
+                        |hostname| match hostname {
+                            _ => None,
+                        },
+                    ),
+                )
+                .try_collect::<Vec<_>>()
+                .await?;
 
         let image_status = image.last().unwrap().status.as_ref().unwrap();
 
