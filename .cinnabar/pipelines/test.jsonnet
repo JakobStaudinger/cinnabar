@@ -15,7 +15,7 @@
       name: 'clone',
       image: 'alpine',
       commands: [
-        'apk add git',
+        'apk add --no-cache git',
         'git init',
         'git remote add origin https://github.com/JakobStaudinger/rust-ci.git',
         'git fetch origin +refs/heads/main',

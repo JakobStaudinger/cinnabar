@@ -79,7 +79,7 @@ impl<'a> Container<'a> {
                     platform: None,
                 }),
                 Config {
-                    image: Some(step.configuration.image.as_str()),
+                    image: Some(step.configuration.image.to_string().as_str()),
                     working_dir: Some(workspace_directory),
                     tty: Some(true),
                     env: Some(vec![
