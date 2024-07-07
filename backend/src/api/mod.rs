@@ -1,26 +1,20 @@
-use std::{io, sync::Arc};
+mod state;
+mod webhook;
 
 use axum::{extract::State, http::HeaderMap, routing::post, Router};
 use bollard::Docker;
-use domain::{Branch, Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
-use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
+use std::{io, sync::Arc};
 use tokio::signal::{self, unix::SignalKind};
 
-use crate::{
-    config::AppConfig,
-    parser::parse_pipeline,
-    runner,
-    webhook::{handle_webhook, Callbacks},
-};
+use crate::{config::AppConfig, parser::parse_pipeline, runner};
+
+use domain::{Branch, Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
+use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
+use state::RequestState;
+use webhook::{handle_webhook, Callbacks};
 
 pub struct Server {
     app: Router,
-}
-
-#[derive(Clone)]
-struct RequestState {
-    config: AppConfig,
-    callbacks: Callbacks,
 }
 
 impl Server {
@@ -29,10 +23,8 @@ impl Server {
             .route(
                 "/webhook",
                 post(
-                    |State(RequestState { config, callbacks }): State<RequestState>,
-                     headers: HeaderMap,
-                     body: String| {
-                        handle_webhook(config, callbacks, headers, body)
+                    |state: State<RequestState>, headers: HeaderMap, body: String| {
+                        handle_webhook(state, headers, body)
                     },
                 ),
             )

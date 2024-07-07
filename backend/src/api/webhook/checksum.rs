@@ -1,9 +1,8 @@
-use std::fmt::Display;
-
 use axum::http::HeaderMap;
 use hmac::{Hmac, Mac};
 use secrecy::{ExposeSecret, SecretString};
 use sha2::Sha256;
+use std::fmt::Display;
 
 pub fn verify(
     headers: &HeaderMap,

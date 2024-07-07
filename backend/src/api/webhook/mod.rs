@@ -1,16 +1,17 @@
 mod checksum;
 
-use std::sync::Arc;
-
 use axum::{
+    extract::State,
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
+use serde::{de::Visitor, Deserialize};
+use std::sync::Arc;
+
+use crate::{api::RequestState, config::AppConfig};
+
 use checksum::VerifiedBody;
 use domain::{Branch, Trigger, TriggerEvent};
-use serde::{de::Visitor, Deserialize};
-
-use crate::config::AppConfig;
 
 #[derive(Clone)]
 pub struct Callbacks {
@@ -18,8 +19,7 @@ pub struct Callbacks {
 }
 
 pub async fn handle_webhook(
-    config: AppConfig,
-    callbacks: Callbacks,
+    State(RequestState { config, callbacks }): State<RequestState>,
     headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse {
@@ -43,25 +43,24 @@ pub async fn handle_webhook(
 fn parse_trigger(headers: HeaderMap, body: VerifiedBody) -> Result<Option<Trigger>, &'static str> {
     let event = headers.get("x-github-event");
     let event = event.ok_or("Missing header x-github-event")?;
+    let event = event.to_str().map_err(|_| "Failed to parse event")?;
 
     let supported_events = ["push", "pull_request"];
 
-    match event.to_str() {
-        Ok(event) if supported_events.contains(&event) => {
-            let payload = format!(
-                r#"{{
-                    "event": "{event}",
-                    "payload": {body}
-                }}"#,
-            );
+    if supported_events.contains(&event) {
+        let payload = format!(
+            r#"{{
+                "event": "{event}",
+                "payload": {body}
+            }}"#,
+        );
 
-            let event = serde_json::from_str::<WebhookEvent>(&payload)
-                .map_err(|_| "Failed to parse payload")?;
+        let event = serde_json::from_str::<WebhookEvent>(&payload)
+            .map_err(|_| "Failed to parse payload")?;
 
-            Ok(event.extract_trigger())
-        }
-        Ok(_) => Ok(None),
-        Err(_) => Err("Failed to parse event"),
+        Ok(event.extract_trigger())
+    } else {
+        Ok(None)
     }
 }
 

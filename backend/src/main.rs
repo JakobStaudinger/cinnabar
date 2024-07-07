@@ -1,11 +1,10 @@
+use api::Server;
 use config::build_config;
-use server::Server;
 
+mod api;
 mod config;
 mod parser;
 mod runner;
-mod server;
-mod webhook;
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
