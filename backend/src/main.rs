@@ -3,6 +3,7 @@ use config::build_config;
 
 mod api;
 mod config;
+mod orchestrator;
 mod parser;
 mod runner;
 
