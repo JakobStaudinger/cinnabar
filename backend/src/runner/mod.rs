@@ -1,5 +1,5 @@
 use bollard::Docker;
-use domain::{Pipeline, PipelineStatus, Step};
+use domain::build::{Pipeline, PipelineStatus, Step};
 use futures::TryStreamExt;
 
 use self::container::ContainerExitCode;

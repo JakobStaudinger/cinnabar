@@ -2,7 +2,7 @@ use std::path::Path;
 
 use super::error::RunnerError as Error;
 use super::volume::Volume;
-use domain::{Pipeline, Step};
+use domain::build::{Pipeline, Step};
 
 use bollard::{
     container::{Config, CreateContainerOptions, LogOutput, LogsOptions},

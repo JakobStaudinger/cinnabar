@@ -11,7 +11,7 @@ use std::sync::Arc;
 use crate::{api::RequestState, config::AppConfig};
 
 use checksum::VerifiedBody;
-use domain::{Branch, Trigger, TriggerEvent};
+use domain::build::{Branch, Trigger, TriggerEvent};
 
 #[derive(Clone)]
 pub struct Callbacks {
@@ -277,7 +277,7 @@ impl RefVisitor {
 #[cfg(test)]
 mod tests {
     use axum::http::HeaderValue;
-    use domain::Branch;
+    use domain::build::Branch;
 
     use super::*;
 

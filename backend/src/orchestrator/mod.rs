@@ -1,5 +1,5 @@
 use bollard::Docker;
-use domain::{Branch, Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
+use domain::build::{Branch, Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
 
 use crate::{config::AppConfig, parser::parse_pipeline, runner};
