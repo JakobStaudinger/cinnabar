@@ -3,6 +3,7 @@ use secrecy::SecretString;
 #[derive(Clone)]
 pub struct AppConfig {
     pub github: GitHubConfig,
+    pub database: DatabaseConfig,
 }
 
 #[derive(Clone)]
@@ -12,10 +13,16 @@ pub struct GitHubConfig {
     pub webhook_secret: SecretString,
 }
 
+#[derive(Clone)]
+pub struct DatabaseConfig {
+    pub url: String,
+}
+
 impl AppConfig {
     pub fn from_environment() -> Result<AppConfig, String> {
         Ok(AppConfig {
             github: GitHubConfig::from_environment()?,
+            database: DatabaseConfig::from_environment()?,
         })
     }
 }
@@ -40,5 +47,14 @@ impl GitHubConfig {
             private_key,
             webhook_secret,
         })
+    }
+}
+
+impl DatabaseConfig {
+    fn from_environment() -> Result<DatabaseConfig, String> {
+        let url = std::env::var("DATABASE_URL")
+            .map_err(|_| "Please provide the DATABASE_URL environment variable")?;
+
+        Ok(DatabaseConfig { url })
     }
 }

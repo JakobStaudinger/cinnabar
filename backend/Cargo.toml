@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 axum = "0.7.5"
 bollard = "0.16.1"
+diesel = { version = "2.2.4", features = ["sqlite", "returning_clauses_for_sqlite_3_35"] }
 digest = { version = "0.10.7", features = ["mac"] }
 domain = { path = "../domain" }
 futures = "0.3.30"
