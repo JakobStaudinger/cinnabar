@@ -23,7 +23,7 @@ pub async fn handle_webhook(
     headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse {
-    let body = match checksum::verify(&headers, body, &config.github_webhook_secret) {
+    let body = match checksum::verify(&headers, body, &config.github.webhook_secret) {
         Ok(body) => body,
         Err(message) => return (StatusCode::BAD_REQUEST, message),
     };

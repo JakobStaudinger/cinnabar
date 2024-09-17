@@ -16,7 +16,7 @@ pub fn handle_trigger(trigger: Trigger, config: AppConfig) {
             } => commit,
         };
 
-        let github = GitHub::build(config.github_app_id, &config.github_private_key).unwrap();
+        let github = GitHub::build(config.github.app_id, &config.github.private_key).unwrap();
         let installation = github
             .get_installation(
                 &trigger.repository_owner,

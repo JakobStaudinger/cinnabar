@@ -1,5 +1,5 @@
 use api::Server;
-use config::build_config;
+use config::AppConfig;
 
 mod api;
 mod config;
@@ -9,7 +9,7 @@ mod runner;
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    let config = build_config()?;
+    let config = AppConfig::from_environment()?;
 
     let server = Server::new(config);
 
