@@ -134,7 +134,6 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "bollard",
- "diesel",
  "digest",
  "domain",
  "futures",
@@ -408,6 +407,7 @@ dependencies = [
 name = "domain"
 version = "0.1.0"
 dependencies = [
+ "diesel",
  "serde",
  "serde_json",
  "thiserror",
