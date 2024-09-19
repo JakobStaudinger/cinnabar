@@ -1,11 +1,11 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use diesel::{
     backend::Backend,
-    prelude::{Insertable, Queryable},
-    serialize::ToSql,
-    sql_types::{Integer, Text},
-    AsExpression, Connection, Selectable, SelectableHelper, SqliteConnection,
+    deserialize::{self, FromSql, FromSqlRow},
+    serialize::{self, ToSql},
+    sql_types::{Integer, VarChar},
+    AsExpression,
 };
 use serde::{Deserialize, Serialize};
 
@@ -34,40 +34,15 @@ pub struct Pipeline {
     pub status: PipelineStatus,
 }
 
-#[derive(Queryable, Selectable)]
-#[diesel(table_name = crate::schema::pipelines)]
-struct RawPipeline {
-    pub id: PipelineId,
-    pub status: PipelineStatus,
-}
-
-#[derive(Insertable)]
-#[diesel(table_name = crate::schema::pipelines)]
-pub struct NewPipeline {
-    pub status: PipelineStatus,
-}
-
-#[derive(Serialize, Deserialize, Debug, AsExpression)]
+#[derive(Serialize, Deserialize, Debug, AsExpression, FromSqlRow)]
 #[diesel(sql_type = Integer)]
-pub struct PipelineId(pub usize);
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct PipelineId(pub i32);
 
-// impl<DB> ToSql<Integer, DB> for PipelineId
-// where
-//     DB: Backend,
-//     usize: ToSql<diesel::sql_types::Integer, DB>,
-// {
-//     fn to_sql<'b>(
-//         &'b self,
-//         out: &mut diesel::serialize::Output<'b, '_, DB>,
-//     ) -> diesel::serialize::Result {
-//         self.0.to_sql(out)
-//     }
-// }
-
-impl<DB> ToSql<Text, DB> for PipelineStatus
+impl<DB> ToSql<VarChar, DB> for PipelineStatus
 where
     DB: Backend,
-    str: ToSql<Text, DB>,
+    str: ToSql<VarChar, DB>,
 {
     fn to_sql<'b>(
         &'b self,
@@ -82,6 +57,43 @@ where
     }
 }
 
+impl<DB> FromSql<VarChar, DB> for PipelineStatus
+where
+    DB: Backend,
+    *const str: FromSql<diesel::sql_types::VarChar, DB>,
+{
+    fn from_sql(bytes: <DB as Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
+        let string = <String as deserialize::FromSql<VarChar, DB>>::from_sql(bytes)?;
+        string
+            .parse()
+            .map_err(|_| panic!("Could not parse pipeline status {string}"))
+    }
+}
+
+impl<DB> ToSql<Integer, DB> for PipelineId
+where
+    DB: Backend,
+    i32: serialize::ToSql<Integer, DB>,
+{
+    fn to_sql<'b>(
+        &'b self,
+        out: &mut diesel::serialize::Output<'b, '_, DB>,
+    ) -> diesel::serialize::Result {
+        self.0.to_sql(out)
+    }
+}
+
+impl<DB> FromSql<Integer, DB> for PipelineId
+where
+    DB: Backend,
+    i32: deserialize::FromSql<Integer, DB>,
+{
+    fn from_sql(bytes: <DB as Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
+        let result = <i32 as deserialize::FromSql<Integer, DB>>::from_sql(bytes);
+        result.map(|id| PipelineId(id))
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Step {
     pub id: StepId,
@@ -93,13 +105,27 @@ pub struct Step {
 pub struct StepId(usize);
 
 #[repr(i32)]
-#[derive(Serialize, Deserialize, PartialEq, AsExpression, Debug)]
-#[diesel(sql_type = Integer)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, AsExpression, FromSqlRow)]
+#[diesel(sql_type = VarChar)]
 pub enum PipelineStatus {
     Pending,
     Running,
     Passed,
     Failed,
+}
+
+impl FromStr for PipelineStatus {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "pending" => Ok(PipelineStatus::Pending),
+            "running" => Ok(PipelineStatus::Running),
+            "failed" => Ok(PipelineStatus::Failed),
+            "passed" => Ok(PipelineStatus::Passed),
+            _ => Err(()),
+        }
+    }
 }
 
 impl Pipeline {
@@ -123,7 +149,7 @@ impl Pipeline {
 }
 
 impl PipelineId {
-    pub fn new(i: usize) -> Self {
+    pub fn new(i: i32) -> Self {
         Self(i)
     }
 }
@@ -154,33 +180,4 @@ impl Display for StepId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
-}
-
-pub trait PipelinesRepository {
-    fn create_new(&mut self) -> Result<PipelineId, ()>;
-}
-
-struct PipelinesRepositoryImpl<'a> {
-    pub connection: &'a mut SqliteConnection,
-}
-
-impl<'a> PipelinesRepository for PipelinesRepositoryImpl<'a> {
-    fn create_new(&mut self) -> Result<PipelineId, ()> {
-        use crate::schema::pipelines;
-        use diesel::prelude::*;
-
-        let result = diesel::insert_into(pipelines::table)
-            .values(NewPipeline {
-                status: PipelineStatus::Pending,
-            })
-            .returning(RawPipeline::as_returning())
-            .get_result(self.connection)
-            .map_err(|_| ())?;
-    }
-}
-
-pub fn create_pipeline(database_url: &str) {
-    let connection = SqliteConnection::establish(database_url).unwrap();
-    let mut repository = PipelinesRepositoryImpl { connection };
-    repository.create_new();
 }
