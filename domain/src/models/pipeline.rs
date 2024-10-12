@@ -90,7 +90,7 @@ where
 {
     fn from_sql(bytes: <DB as Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
         let result = <i32 as deserialize::FromSql<Integer, DB>>::from_sql(bytes);
-        result.map(|id| PipelineId(id))
+        result.map(PipelineId)
     }
 }
 
