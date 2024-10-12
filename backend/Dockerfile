@@ -7,7 +7,7 @@ FROM rust:${RUST_VERSION}-alpine AS build
 ARG APP_NAME
 WORKDIR /app
 
-RUN apk add --no-cache clang lld musl-dev git
+RUN apk add --no-cache clang lld musl-dev git sqlite-libs sqlite-dev
 
 RUN --mount=type=bind,source=backend,target=backend \
     --mount=type=bind,source=domain,target=domain \

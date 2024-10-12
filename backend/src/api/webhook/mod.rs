@@ -6,20 +6,23 @@ use axum::{
     response::IntoResponse,
 };
 use serde::{de::Visitor, Deserialize};
-use std::sync::Arc;
 
 use crate::{api::RequestState, config::AppConfig};
 
 use checksum::VerifiedBody;
 use domain::{Branch, Trigger, TriggerEvent};
 
+pub trait TriggerCallback: Send + Sync + FnOnce(Trigger, AppConfig) {}
+
+impl<T: Send + Sync + FnOnce(Trigger, AppConfig)> TriggerCallback for T {}
+
 #[derive(Clone)]
-pub struct Callbacks {
-    pub trigger: Arc<dyn Send + Sync + Fn(Trigger, AppConfig)>,
+pub struct Callbacks<T: TriggerCallback> {
+    pub trigger: T,
 }
 
-pub async fn handle_webhook(
-    State(RequestState { config, callbacks }): State<RequestState>,
+pub async fn handle_webhook<T: TriggerCallback>(
+    State(RequestState { config, callbacks }): State<RequestState<T>>,
     headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse {
@@ -32,7 +35,7 @@ pub async fn handle_webhook(
 
     match trigger {
         Ok(Some(trigger)) => {
-            (*callbacks.trigger)(trigger, config);
+            (callbacks.trigger)(trigger, config);
             (StatusCode::CREATED, "OK")
         }
         Ok(None) => (StatusCode::NO_CONTENT, "OK"),
