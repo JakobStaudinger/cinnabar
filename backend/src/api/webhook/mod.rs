@@ -1,5 +1,7 @@
 mod checksum;
 
+use std::future::Future;
+
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
@@ -12,9 +14,23 @@ use crate::{api::RequestState, config::AppConfig};
 use checksum::VerifiedBody;
 use domain::{Branch, Trigger, TriggerEvent};
 
-pub trait TriggerCallback: Send + Sync + FnOnce(Trigger, AppConfig) {}
+pub trait TriggerCallback: Send + Sync {
+    type Output: Future<Output = ()> + Send;
 
-impl<T: Send + Sync + FnOnce(Trigger, AppConfig)> TriggerCallback for T {}
+    fn call(self, trigger: Trigger, config: AppConfig) -> Self::Output;
+}
+
+impl<T, Output> TriggerCallback for T
+where
+    T: Send + Sync + FnOnce(Trigger, AppConfig) -> Output,
+    Output: Future<Output = ()> + Send,
+{
+    type Output = Output;
+
+    fn call(self, trigger: Trigger, config: AppConfig) -> Self::Output {
+        self(trigger, config)
+    }
+}
 
 #[derive(Clone)]
 pub struct Callbacks<T: TriggerCallback> {
@@ -35,7 +51,7 @@ pub async fn handle_webhook<T: TriggerCallback>(
 
     match trigger {
         Ok(Some(trigger)) => {
-            (callbacks.trigger)(trigger, config);
+            callbacks.trigger.call(trigger, config).await;
             (StatusCode::CREATED, "OK")
         }
         Ok(None) => (StatusCode::NO_CONTENT, "OK"),
