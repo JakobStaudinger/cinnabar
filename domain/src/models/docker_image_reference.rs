@@ -2,52 +2,6 @@ use std::fmt::Display;
 
 use serde::{de::Visitor, Deserialize, Serialize};
 
-use super::trigger::TriggerConfiguration;
-
-#[derive(Serialize, Deserialize)]
-pub struct PipelineConfiguration {
-    pub name: String,
-    pub trigger: Vec<TriggerConfiguration>,
-    pub steps: Vec<StepConfiguration>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct StepConfiguration {
-    pub name: String,
-    pub image: DockerImageReference,
-    pub commands: Option<Vec<String>>,
-    pub cache: Option<Vec<String>>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Pipeline {
-    pub id: PipelineId,
-    pub configuration: PipelineConfiguration,
-    pub steps: Vec<Step>,
-    pub status: PipelineStatus,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct PipelineId(pub usize);
-
-#[derive(Serialize, Deserialize)]
-pub struct Step {
-    pub id: StepId,
-    pub configuration: StepConfiguration,
-    pub status: PipelineStatus,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct StepId(usize);
-
-#[derive(Serialize, Deserialize, PartialEq)]
-pub enum PipelineStatus {
-    Pending,
-    Running,
-    Passed,
-    Failed,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DockerImageReference {
     pub hostname: Option<String>,
@@ -146,59 +100,6 @@ impl Display for DockerImageReference {
         let repository = &self.repository;
 
         write!(f, "{hostname}{repository}{tag}")
-    }
-}
-
-impl Pipeline {
-    pub fn new(id: PipelineId, configuration: PipelineConfiguration) -> Self {
-        let steps = configuration
-            .steps
-            .iter()
-            .enumerate()
-            .map(|(id, step_configuration)| {
-                Step::new(StepId::new(id + 1), step_configuration.clone())
-            })
-            .collect();
-        Self {
-            id,
-            configuration,
-            steps,
-            status: PipelineStatus::Pending,
-        }
-    }
-}
-
-impl PipelineId {
-    pub fn new(i: usize) -> Self {
-        Self(i)
-    }
-}
-
-impl Display for PipelineId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Step {
-    pub fn new(id: StepId, configuration: StepConfiguration) -> Self {
-        Self {
-            id,
-            configuration,
-            status: PipelineStatus::Pending,
-        }
-    }
-}
-
-impl StepId {
-    pub fn new(i: usize) -> Self {
-        Self(i)
-    }
-}
-
-impl Display for StepId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
     }
 }
 

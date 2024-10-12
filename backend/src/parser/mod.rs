@@ -7,7 +7,7 @@ use self::{
     json::JsonParser,
     jsonnet::JsonnetParser,
 };
-use domain::build::PipelineConfiguration;
+use domain::PipelineConfiguration;
 use source_control::{File, SourceControlInstallation};
 
 pub async fn parse_pipeline<I>(file: &File, installation: &I) -> Result<PipelineConfiguration>

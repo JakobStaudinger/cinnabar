@@ -1,9 +1,9 @@
 use crate::config::AppConfig;
 
-use super::webhook::Callbacks;
+use super::webhook::{Callbacks, TriggerCallback};
 
 #[derive(Clone)]
-pub struct RequestState {
+pub struct RequestState<T: TriggerCallback> {
     pub config: AppConfig,
-    pub callbacks: Callbacks,
+    pub callbacks: Callbacks<T>,
 }

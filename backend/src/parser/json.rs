@@ -7,7 +7,7 @@ impl PipelineParser for JsonParser {
         &self,
         file: &source_control::File,
         installation: &I,
-    ) -> super::error::Result<domain::build::PipelineConfiguration>
+    ) -> super::error::Result<domain::PipelineConfiguration>
     where
         I: source_control::SourceControlInstallation,
     {

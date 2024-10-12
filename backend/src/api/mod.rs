@@ -1,8 +1,8 @@
 mod state;
 mod webhook;
 
-use axum::{extract::State, http::HeaderMap, routing::post, Router};
-use std::{io, sync::Arc};
+use axum::{routing::post, Router};
+use std::io;
 use tokio::signal::{self, unix::SignalKind};
 
 use crate::{config::AppConfig, orchestrator::handle_trigger};
@@ -17,18 +17,11 @@ pub struct Server {
 impl Server {
     pub fn new(config: AppConfig) -> Self {
         let app = Router::new()
-            .route(
-                "/webhook",
-                post(
-                    |state: State<RequestState>, headers: HeaderMap, body: String| {
-                        handle_webhook(state, headers, body)
-                    },
-                ),
-            )
+            .route("/webhook", post(handle_webhook))
             .with_state(RequestState {
                 config,
                 callbacks: Callbacks {
-                    trigger: Arc::new(handle_trigger),
+                    trigger: handle_trigger,
                 },
             });
 

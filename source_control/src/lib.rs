@@ -32,7 +32,7 @@ pub trait SourceControlInstallation {
         &self,
         commit: &str,
         name: &str,
-        id: usize,
+        id: i32,
         status: CheckStatus,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }

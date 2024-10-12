@@ -154,7 +154,7 @@ impl SourceControlInstallation for GitHubInstallation {
         &self,
         commit: &str,
         name: &str,
-        id: usize,
+        id: i32,
         status: CheckStatus,
     ) -> Result<(), Self::Error> {
         let checks = self.octocrab.checks(&self.owner, &self.repo);
