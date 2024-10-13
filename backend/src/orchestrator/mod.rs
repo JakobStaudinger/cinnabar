@@ -1,10 +1,16 @@
 use bollard::Docker;
 use domain::{Branch, Pipeline, PipelineId, PipelineStatus, Trigger, TriggerEvent};
+use itertools::Itertools;
 use source_control::{github::GitHub, CheckStatus, SourceControl, SourceControlInstallation};
+use tokio::task::JoinSet;
 
-use crate::{config::AppConfig, parser::parse_pipeline, runner};
+use crate::{
+    config::AppConfig,
+    parser::{error::ParserError, parse_pipeline},
+    runner,
+};
 
-pub async fn handle_trigger(trigger: Trigger, config: AppConfig) {
+pub async fn handle_trigger(trigger: Trigger, config: AppConfig) -> Result<(), ()> {
     let commit = match &trigger.event {
         TriggerEvent::Push {
             branch: Branch { commit, .. },
@@ -31,18 +37,50 @@ pub async fn handle_trigger(trigger: Trigger, config: AppConfig) {
         .into_iter()
         .filter(|file| file.path.starts_with(".cinnabar/pipelines/"));
 
+    let mut join_set = JoinSet::new();
+
     for file in pipeline_files {
         let installation = installation.clone();
-        let commit = commit.clone();
         let trigger = trigger.clone();
 
-        let configuration = parse_pipeline(&file, &installation).await.unwrap();
+        join_set.spawn(async move {
+            let configuration = parse_pipeline(&file, &installation).await?;
 
-        if configuration
-            .trigger
-            .iter()
-            .any(|trigger_configuration| trigger_configuration.matches(&trigger))
-        {
+            if configuration
+                .trigger
+                .iter()
+                .any(|trigger_configuration| trigger_configuration.matches(&trigger))
+            {
+                Ok::<_, ParserError>(Some(configuration))
+            } else {
+                Ok(None)
+            }
+        });
+    }
+
+    let mut results = Vec::with_capacity(join_set.len());
+
+    while let Some(result) = join_set.join_next().await {
+        let configuration = result.unwrap();
+        results.push(configuration);
+    }
+
+    let (pipelines, parser_errors): (Vec<_>, Vec<_>) = results.into_iter().partition_result();
+
+    if !parser_errors.is_empty() {
+        return Err(());
+    }
+
+    let matched_pipelines: Vec<_> = pipelines.into_iter().flatten().collect();
+
+    if matched_pipelines.is_empty() {
+        return Ok(());
+    }
+
+    let installation = installation.clone();
+    let commit = commit.clone();
+    tokio::spawn(async move {
+        for configuration in matched_pipelines {
             let pipeline_id = rand::random();
             let mut pipeline = Pipeline::new(PipelineId::new(pipeline_id), configuration);
 
@@ -79,5 +117,7 @@ pub async fn handle_trigger(trigger: Trigger, config: AppConfig) {
                 .await
                 .unwrap();
         }
-    }
+    });
+
+    Ok(())
 }

@@ -139,6 +139,7 @@ dependencies = [
  "futures",
  "hex",
  "hmac",
+ "itertools",
  "rand",
  "rsjsonnet-lang",
  "secrecy",
@@ -838,6 +839,15 @@ checksum = "7f5f6c2df22c009ac44f6f1499308e7a3ac7ba42cd2378475cc691510e1eef1b"
 dependencies = [
  "memchr",
  "serde",
+]
+
+[[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
 ]
 
 [[package]]

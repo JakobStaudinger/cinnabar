@@ -15,7 +15,7 @@ use checksum::VerifiedBody;
 use domain::{Branch, Trigger, TriggerEvent};
 
 pub trait TriggerCallback: Send + Sync {
-    type Output: Future<Output = ()> + Send;
+    type Output: Future<Output = Result<(), ()>> + Send;
 
     fn call(self, trigger: Trigger, config: AppConfig) -> Self::Output;
 }
@@ -23,7 +23,7 @@ pub trait TriggerCallback: Send + Sync {
 impl<T, Output> TriggerCallback for T
 where
     T: Send + Sync + FnOnce(Trigger, AppConfig) -> Output,
-    Output: Future<Output = ()> + Send,
+    Output: Future<Output = Result<(), ()>> + Send,
 {
     type Output = Output;
 
@@ -51,8 +51,11 @@ pub async fn handle_webhook<T: TriggerCallback>(
 
     match trigger {
         Ok(Some(trigger)) => {
-            callbacks.trigger.call(trigger, config).await;
-            (StatusCode::CREATED, "OK")
+            let result = callbacks.trigger.call(trigger, config).await;
+            match result {
+                Ok(()) => (StatusCode::CREATED, "OK"),
+                Err(()) => (StatusCode::BAD_REQUEST, "Could not parse pipeline config"),
+            }
         }
         Ok(None) => (StatusCode::NO_CONTENT, "OK"),
         Err(message) => (StatusCode::BAD_REQUEST, message),
