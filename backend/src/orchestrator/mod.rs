@@ -77,10 +77,11 @@ pub async fn handle_trigger(trigger: Trigger, config: AppConfig) -> Result<(), (
         return Ok(());
     }
 
-    let installation = installation.clone();
-    let commit = commit.clone();
-    tokio::spawn(async move {
-        for configuration in matched_pipelines {
+    for configuration in matched_pipelines {
+        let installation = installation.clone();
+        let commit = commit.clone();
+
+        tokio::spawn(async move {
             let pipeline_id = rand::random();
             let mut pipeline = Pipeline::new(PipelineId::new(pipeline_id), configuration);
 
@@ -116,8 +117,8 @@ pub async fn handle_trigger(trigger: Trigger, config: AppConfig) -> Result<(), (
                 )
                 .await
                 .unwrap();
-        }
-    });
+        });
+    }
 
     Ok(())
 }
