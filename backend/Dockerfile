@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
-ARG RUST_VERSION=1.78.0
+ARG RUST_VERSION=1.81.0
 ARG APP_NAME=backend
 
 FROM rust:${RUST_VERSION}-alpine AS build
 ARG APP_NAME
 WORKDIR /app
 
-RUN apk add --no-cache clang lld musl-dev git sqlite-libs sqlite-dev
+RUN apk add --no-cache clang lld musl-dev git
 
 RUN --mount=type=bind,source=backend,target=backend \
     --mount=type=bind,source=domain,target=domain \

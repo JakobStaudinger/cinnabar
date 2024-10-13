@@ -24,9 +24,9 @@
     },
     {
       name: 'Test',
-      image: 'rust:1.78.0-alpine',
+      image: 'rust:1.81.0-alpine',
       commands: [
-        'apk add musl-dev sqlite-dev',
+        'apk add musl-dev',
         'cargo test',
       ],
       cache: [
