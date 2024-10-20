@@ -24,7 +24,7 @@
     },
     {
       name: 'Test',
-      image: 'rust:1.81.0-alpine',
+      image: 'rust:1.82.0-alpine',
       commands: [
         'apk add musl-dev',
         'cargo test',

@@ -16,9 +16,9 @@ use crate::{
 };
 
 pub async fn handle_trigger(trigger: Trigger, config: AppConfig) -> Result<(), ()> {
-    let commit = extract_commit(&trigger);
     let installation = get_installation(&trigger, &config).await.map_err(|_| ())?;
 
+    let commit = extract_commit(&trigger);
     let pipeline_files = find_pipeline_files(commit, &installation)
         .await
         .map_err(|_| ())?;
