@@ -17,14 +17,14 @@
       commands: [
         'apk add --no-cache git',
         'git init',
-        'git remote add origin https://github.com/JakobStaudinger/rust-ci.git',
+        'git remote add origin https://github.com/JakobStaudinger/cinnabar.git',
         'git fetch origin +refs/heads/main',
         'git checkout main',
       ],
     },
     {
       name: 'Lint',
-      image: 'rust:1.82.0-alpine',
+      image: 'rust:1.87.0-alpine',
       commands: [
         'apk add musl-dev',
         'rustup component add clippy',
