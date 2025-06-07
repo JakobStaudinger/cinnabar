@@ -55,12 +55,15 @@ impl TriggerConfiguration {
                     source: Branch { name: source, .. },
                     target: Branch { name: target, .. },
                 } => {
-                    expected_target
+                    let source_matches = expected_source
                         .as_ref()
-                        .map_or(true, |expected_target| expected_target == target)
-                        && expected_source
-                            .as_ref()
-                            .map_or(true, |expected_source| expected_source == source)
+                        .is_none_or(|expected_source| expected_source == source);
+
+                    let target_matches = expected_target
+                        .as_ref()
+                        .is_none_or(|expected_target| expected_target == target);
+
+                    source_matches && target_matches
                 }
                 _ => false,
             },

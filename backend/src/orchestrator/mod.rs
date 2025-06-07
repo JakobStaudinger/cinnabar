@@ -4,8 +4,8 @@ use domain::{
 };
 use itertools::Itertools;
 use source_control::{
-    github::{error::GitHubError, GitHub, GitHubInstallation},
     CheckStatus, File, SourceControl, SourceControlInstallation,
+    github::{GitHub, GitHubInstallation, error::GitHubError},
 };
 use tokio::task::JoinSet;
 
@@ -31,9 +31,6 @@ pub async fn handle_trigger(trigger: Trigger, config: AppConfig) -> Result<(), (
     }
 
     let matched_pipelines: Vec<_> = pipelines.into_iter().flatten().collect();
-    if matched_pipelines.is_empty() {
-        return Ok(());
-    }
 
     for configuration in matched_pipelines {
         tokio::spawn(process_pipeline(
